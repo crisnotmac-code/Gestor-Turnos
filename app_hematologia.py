@@ -28,6 +28,9 @@ def match_medico(nombre_texto, med):
     nt = limpiar_texto(nombre_texto)
     mt = limpiar_texto(med).replace("DR. ", "").replace("DRA. ", "").replace("DR ", "").replace("DRA ", "").strip()
     
+    # Filtro anti-residentes: Si es Climent, ignoramos cualquier coincidencia con González
+    if "CLIMENT" in nt and "GONZALEZ" in mt: return False
+
     if "RIOS DE PAZ" in mt: return ("PAZ" in nt) or (("RIOS" in nt or "PABLO" in nt) and "RULL" not in nt)
     if "RIOS RULL" in mt: return "RULL" in nt
     if "GARCIA ROULSTON" in mt: return "ROULSTON" in nt or "KEVIN" in nt or "GARCIA" in nt
@@ -122,7 +125,6 @@ def cargar_todo(archivo):
     try:
         if isinstance(archivo, str):
             if not os.path.exists(archivo):
-                # Ignoramos silenciosamente si no está el archivo base en GitHub
                 return None, None, None, None
             f = archivo
         elif hasattr(archivo, 'getvalue'):
@@ -130,20 +132,19 @@ def cargar_todo(archivo):
         else:
             f = archivo
             
+        # IMPORTANTE: Forzamos la lectura de guardias SIN que use la primera fila como nombres de columna
         xl = pd.ExcelFile(f)
-        def get_sheet(keywords, default_idx=None):
+        def get_sheet(keywords, header_mode=0):
             for sheet in xl.sheet_names:
                 sheet_up = str(sheet).strip().upper()
                 for kw in keywords:
-                    if kw in sheet_up: return xl.parse(sheet)
-            if default_idx is not None and default_idx < len(xl.sheet_names):
-                return xl.parse(xl.sheet_names[default_idx])
+                    if kw in sheet_up: return xl.parse(sheet, header=header_mode)
             return None
 
-        df_g = get_sheet(["GUARDIAS", "GUARDIA"], 0)
-        df_v = get_sheet(["VACACIONES", "VACACION", "LIBRE"])
-        df_g_r = get_sheet(["GUARDIAS_R", "RESIDENTES_G"])
-        df_rot_r = get_sheet(["ROTACIONES_R", "ROTACION"])
+        df_g = get_sheet(["GUARDIAS", "GUARDIA"], header_mode=None)
+        df_v = get_sheet(["VACACIONES", "VACACION", "LIBRE"], header_mode=0)
+        df_g_r = get_sheet(["GUARDIAS_R", "RESIDENTES_G"], header_mode=None)
+        df_rot_r = get_sheet(["ROTACIONES_R", "ROTACION"], header_mode=0)
         
         def clean_df(d):
             if d is not None and not d.empty: return d.loc[:, ~d.columns.duplicated()]
@@ -152,7 +153,6 @@ def cargar_todo(archivo):
         return clean_df(df_g), clean_df(df_v), clean_df(df_g_r), clean_df(df_rot_r)
     except Exception as e:
         st.error(f"🚨 Error técnico leyendo el Excel: {str(e)}")
-        st.info("💡 PISTA: Si el error dice algo de 'openpyxl', significa que tienes que crear el archivo requirements.txt en tu GitHub y reiniciar la app.")
         return None, None, None, None
 
 def extraer_diario(df, fecha_dt, is_vacaciones=False):
@@ -189,17 +189,7 @@ def extraer_diario(df, fecha_dt, is_vacaciones=False):
                         if match_medico(nombre_celda, med): enc.append(med)
         return list(set(enc)), False
     else:
-        try:
-            val_head = df.columns[0]
-            if is_matching_date(val_head, fecha_dt):
-                txt_full = " ".join([str(x).upper() for x in df.columns if pd.notna(x)])
-                meses_presentes = [m for m in meses_es.values() if m in txt_full]
-                if not (meses_presentes and mes_str not in meses_presentes):
-                    if "FESTIVO" in txt_full or "VACACION" in txt_full: es_festivo = True
-                    for med in plantilla:
-                        if match_medico(txt_full, med): enc.append(med)
-        except: pass
-
+        # Modo guardias blindado: se recorren todas las filas sin excepción
         for _, r in df.iterrows():
             try:
                 val = r.iloc[0]
@@ -633,3 +623,4 @@ if df_g is not None:
             for col_num, value in enumerate(dfm.columns.values):
                 ws.write(0, col_num, value, f_cabecera)
         st.download_button("📥 Descargar Excel Mes", b.getvalue(), f"Mes_{ms}.xlsx", "application/vnd.ms-excel")
+else: st.info("Sube datos.xlsx a GitHub o usa el panel lateral.")
