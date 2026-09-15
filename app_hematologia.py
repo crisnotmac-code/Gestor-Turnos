@@ -630,3 +630,4 @@ if df_g is not None:
                 ws.write(0, col_num, value, f_cabecera)
         st.download_button("📥 Descargar Excel Mes", b.getvalue(), f"Mes_{ms}.xlsx", "application/vnd.ms-excel")
 else: st.info("Sube datos.xlsx a GitHub o usa el panel lateral.")
+    
