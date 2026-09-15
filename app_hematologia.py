@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 import io
 import re
+import os
 
 st.set_page_config(page_title="Gestor Hematología 2026", layout="wide")
 st.markdown("""<style>@media print { header, [data-testid="stSidebar"], [data-testid="stToolbar"] { display: none !important; } .main { max-width: 100% !important; padding: 0 !important; } @page { size: landscape; margin: 1cm; } }</style>""", unsafe_allow_html=True)
@@ -119,8 +120,12 @@ def is_matching_date(val, target_date):
 
 def cargar_todo(archivo):
     try:
-        # Extraer contenido en bytes si viene del botón "Subir Archivo"
-        if hasattr(archivo, 'getvalue'):
+        if isinstance(archivo, str):
+            if not os.path.exists(archivo):
+                # Ignoramos silenciosamente si no está el archivo base en GitHub
+                return None, None, None, None
+            f = archivo
+        elif hasattr(archivo, 'getvalue'):
             f = io.BytesIO(archivo.getvalue())
         else:
             f = archivo
@@ -146,9 +151,8 @@ def cargar_todo(archivo):
             
         return clean_df(df_g), clean_df(df_v), clean_df(df_g_r), clean_df(df_rot_r)
     except Exception as e:
-        # SI ALGO FALLA, AHORA LO VEREMOS EN PANTALLA
         st.error(f"🚨 Error técnico leyendo el Excel: {str(e)}")
-        st.info("💡 PISTA: Si el error dice algo de 'openpyxl', significa que tienes que crear el archivo requirements.txt en tu GitHub.")
+        st.info("💡 PISTA: Si el error dice algo de 'openpyxl', significa que tienes que crear el archivo requirements.txt en tu GitHub y reiniciar la app.")
         return None, None, None, None
 
 def extraer_diario(df, fecha_dt, is_vacaciones=False):
@@ -629,4 +633,3 @@ if df_g is not None:
             for col_num, value in enumerate(dfm.columns.values):
                 ws.write(0, col_num, value, f_cabecera)
         st.download_button("📥 Descargar Excel Mes", b.getvalue(), f"Mes_{ms}.xlsx", "application/vnd.ms-excel")
-else: st.info("Sube datos.xlsx a GitHub o usa el panel lateral.")
