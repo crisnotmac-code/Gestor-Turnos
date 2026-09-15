@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import datetime
+from datetime import datetime, timedelta
 import io
 import re
 
@@ -42,7 +42,6 @@ def match_medico(nombre_texto, med):
 def parse_vacaciones(texto, mes_por_defecto):
     texto = limpiar_texto(str(texto)).replace(' Y ', ',')
     bloques = [b.strip() for b in texto.split(',') if b.strip()]
-    
     parsed_ranges = []
     current_month = None
     
@@ -62,7 +61,6 @@ def parse_vacaciones(texto, mes_por_defecto):
             parts = bloque.split(sep)
             if len(parts) >= 2:
                 p1, p2 = parts[0], parts[-1]
-                
                 m2 = current_month
                 for m_str, m_num in meses_es_str.items():
                     if m_str in p2: m2 = m_num; break
@@ -109,7 +107,7 @@ def verificar_dia_en_texto(texto, fecha_dt):
     return esta_en_rango(fecha_dt.day, fecha_dt.month, rangos)
 
 def is_matching_date(val, target_date):
-    if isinstance(val, (pd.Timestamp, datetime.datetime, datetime.date)):
+    if isinstance(val, (pd.Timestamp, datetime.datetime)):
         try: return val.date() == target_date.date()
         except: return val == target_date.date()
     try:
@@ -121,7 +119,13 @@ def is_matching_date(val, target_date):
 
 def cargar_todo(archivo):
     try:
-        xl = pd.ExcelFile(archivo)
+        # Extraer contenido en bytes si viene del botón "Subir Archivo"
+        if hasattr(archivo, 'getvalue'):
+            f = io.BytesIO(archivo.getvalue())
+        else:
+            f = archivo
+            
+        xl = pd.ExcelFile(f)
         def get_sheet(keywords, default_idx=None):
             for sheet in xl.sheet_names:
                 sheet_up = str(sheet).strip().upper()
@@ -141,7 +145,11 @@ def cargar_todo(archivo):
             return d
             
         return clean_df(df_g), clean_df(df_v), clean_df(df_g_r), clean_df(df_rot_r)
-    except: return None, None, None, None
+    except Exception as e:
+        # SI ALGO FALLA, AHORA LO VEREMOS EN PANTALLA
+        st.error(f"🚨 Error técnico leyendo el Excel: {str(e)}")
+        st.info("💡 PISTA: Si el error dice algo de 'openpyxl', significa que tienes que crear el archivo requirements.txt en tu GitHub.")
+        return None, None, None, None
 
 def extraer_diario(df, fecha_dt, is_vacaciones=False):
     if df is None or df.empty: return [], False
@@ -150,12 +158,9 @@ def extraer_diario(df, fecha_dt, is_vacaciones=False):
     mes_str = meses_es[fecha_dt.month]
     
     if is_vacaciones:
-        # Híbrido: Detecta si el Excel de vacaciones usa formato "Inicio/Fin" oficial
         c_ini = next((c for c in df.columns if "ini" in str(c).lower()), None)
         c_fin = next((c for c in df.columns if "fin" in str(c).lower()), None)
-        
         if c_ini is not None and c_fin is not None:
-            # Formato Estructurado Oficial
             for _, r in df.iterrows():
                 try:
                     d_ini = pd.to_datetime(r[c_ini], dayfirst=True)
@@ -166,7 +171,6 @@ def extraer_diario(df, fecha_dt, is_vacaciones=False):
                             if match_medico(txt_full, med): enc.append(med)
                 except Exception as e: continue
         else:
-            # Formato Antiguo de Texto (Ej. "1 al 15 de julio")
             col_dias_idx = -1
             for i, col in enumerate(df.columns):
                 if "DIA" in str(col).upper() or "LIBRE" in str(col).upper():
@@ -181,7 +185,6 @@ def extraer_diario(df, fecha_dt, is_vacaciones=False):
                         if match_medico(nombre_celda, med): enc.append(med)
         return list(set(enc)), False
     else:
-        # Guardias - Rescate del primer día en cabecera
         try:
             val_head = df.columns[0]
             if is_matching_date(val_head, fecha_dt):
@@ -198,11 +201,8 @@ def extraer_diario(df, fecha_dt, is_vacaciones=False):
                 val = r.iloc[0]
                 if is_matching_date(val, fecha_dt):
                     txt_full = " ".join([str(x).upper() for x in r.values if pd.notna(x)])
-                    
                     meses_presentes = [m for m in meses_es.values() if m in txt_full]
-                    if meses_presentes and mes_str not in meses_presentes:
-                        continue 
-                        
+                    if meses_presentes and mes_str not in meses_presentes: continue 
                     if "FESTIVO" in txt_full or "VACACION" in txt_full: es_festivo = True
                     for med in plantilla:
                         if match_medico(txt_full, med): enc.append(med)
@@ -630,4 +630,3 @@ if df_g is not None:
                 ws.write(0, col_num, value, f_cabecera)
         st.download_button("📥 Descargar Excel Mes", b.getvalue(), f"Mes_{ms}.xlsx", "application/vnd.ms-excel")
 else: st.info("Sube datos.xlsx a GitHub o usa el panel lateral.")
-    
