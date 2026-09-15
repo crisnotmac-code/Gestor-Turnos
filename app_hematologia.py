@@ -1,13 +1,13 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta
+import datetime
 import io
 import re
 
 st.set_page_config(page_title="Gestor Hematología 2026", layout="wide")
 st.markdown("""<style>@media print { header, [data-testid="stSidebar"], [data-testid="stToolbar"] { display: none !important; } .main { max-width: 100% !important; padding: 0 !important; } @page { size: landscape; margin: 1cm; } }</style>""", unsafe_allow_html=True)
 
-# Lista Maestra (Dra. Oliva eliminada)
+# Lista Maestra
 plantilla = ["Dra. Busnego", "Dr. Moreno", "Dra. Sánchez", "Dra. Hernández", "Dra. Martín", "Dra. Alberich", "Dr. Breña", "Dra. Notario", "Dr. Figueroa", "Dra. Peris", "Dra. Montalvo", "Dr. Ríos de Paz", "Dra. Herrero", "Dra. Lorenzo", "Dra. Rodríguez Esteban", "Dra. Hernanz", "Dra. Marrero", "Dr. González", "Dr. García Roulston", "Dr. Ríos Rull", "Dr. De Ramos"]
 
 # Médicos que NUNCA deben usarse para rellenar huecos de Planta ni HD
@@ -108,6 +108,17 @@ def verificar_dia_en_texto(texto, fecha_dt):
     rangos = parse_vacaciones(texto, fecha_dt.month)
     return esta_en_rango(fecha_dt.day, fecha_dt.month, rangos)
 
+def is_matching_date(val, target_date):
+    if isinstance(val, (pd.Timestamp, datetime.datetime, datetime.date)):
+        try: return val.date() == target_date.date()
+        except: return val == target_date.date()
+    try:
+        val_str = str(val).strip()
+        if val_str and val_str.replace('.','',1).isdigit() and int(float(val_str)) == target_date.day:
+            return True
+    except: pass
+    return False
+
 def cargar_todo(archivo):
     try:
         xl = pd.ExcelFile(archivo)
@@ -136,28 +147,56 @@ def extraer_diario(df, fecha_dt, is_vacaciones=False):
     if df is None or df.empty: return [], False
     enc = []
     es_festivo = False
-    dia = fecha_dt.day
     mes_str = meses_es[fecha_dt.month]
     
     if is_vacaciones:
-        col_dias_idx = -1
-        for i, col in enumerate(df.columns):
-            if "DIA" in str(col).upper() or "LIBRE" in str(col).upper():
-                col_dias_idx = i; break
-        if col_dias_idx == -1: col_dias_idx = df.shape[1] - 1
-            
-        for _, r in df.iterrows():
-            nombre_celda = str(r.iloc[0]) + " " + str(r.iloc[1]) if df.shape[1] > 1 else str(r.iloc[0])
-            texto_dias = str(r.iloc[col_dias_idx])
-            if verificar_dia_en_texto(texto_dias, fecha_dt):
-                for med in plantilla:
-                    if match_medico(nombre_celda, med): enc.append(med)
+        # Híbrido: Detecta si el Excel de vacaciones usa formato "Inicio/Fin" oficial
+        c_ini = next((c for c in df.columns if "ini" in str(c).lower()), None)
+        c_fin = next((c for c in df.columns if "fin" in str(c).lower()), None)
+        
+        if c_ini is not None and c_fin is not None:
+            # Formato Estructurado Oficial
+            for _, r in df.iterrows():
+                try:
+                    d_ini = pd.to_datetime(r[c_ini], dayfirst=True)
+                    d_fin = pd.to_datetime(r[c_fin], dayfirst=True)
+                    if d_ini.date() <= fecha_dt.date() <= d_fin.date():
+                        txt_full = " ".join([str(x).upper() for x in r.values if pd.notna(x)])
+                        for med in plantilla:
+                            if match_medico(txt_full, med): enc.append(med)
+                except Exception as e: continue
+        else:
+            # Formato Antiguo de Texto (Ej. "1 al 15 de julio")
+            col_dias_idx = -1
+            for i, col in enumerate(df.columns):
+                if "DIA" in str(col).upper() or "LIBRE" in str(col).upper():
+                    col_dias_idx = i; break
+            if col_dias_idx == -1: col_dias_idx = df.shape[1] - 1
+                
+            for _, r in df.iterrows():
+                nombre_celda = str(r.iloc[0]) + " " + str(r.iloc[1]) if df.shape[1] > 1 else str(r.iloc[0])
+                texto_dias = str(r.iloc[col_dias_idx])
+                if verificar_dia_en_texto(texto_dias, fecha_dt):
+                    for med in plantilla:
+                        if match_medico(nombre_celda, med): enc.append(med)
         return list(set(enc)), False
     else:
+        # Guardias - Rescate del primer día en cabecera
+        try:
+            val_head = df.columns[0]
+            if is_matching_date(val_head, fecha_dt):
+                txt_full = " ".join([str(x).upper() for x in df.columns if pd.notna(x)])
+                meses_presentes = [m for m in meses_es.values() if m in txt_full]
+                if not (meses_presentes and mes_str not in meses_presentes):
+                    if "FESTIVO" in txt_full or "VACACION" in txt_full: es_festivo = True
+                    for med in plantilla:
+                        if match_medico(txt_full, med): enc.append(med)
+        except: pass
+
         for _, r in df.iterrows():
             try:
-                val = str(r.iloc[0]).strip()
-                if val and val.replace('.','',1).isdigit() and int(float(val)) == dia:
+                val = r.iloc[0]
+                if is_matching_date(val, fecha_dt):
                     txt_full = " ".join([str(x).upper() for x in r.values if pd.notna(x)])
                     
                     meses_presentes = [m for m in meses_es.values() if m in txt_full]
@@ -267,7 +306,6 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     # 4. PEDIATRÍA E IC HOSPITALARIA
     ic_hosp = []
     
-    # Asignar Pediatría
     if asignar("Dr. González"): 
         res["Ped"] = "✅ Dr. González"
     elif asignar("Dr. De Ramos"): 
@@ -277,7 +315,6 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     else: 
         res["Ped"] = "❗ [VACÍO]"
 
-    # Asignar IC Hospitalaria
     if "Dr. González" not in ausentes + salientes + bajas:
         ic_hosp.append("✅ Dr. González")
     if "Dr. García Roulston" not in ausentes + salientes + bajas:
@@ -295,7 +332,6 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     hd = ["", "", ""]
     
     p_titu = ["Dra. Busnego", "Dr. Moreno", "Dra. Rodríguez Esteban"]
-    # HD3 ha perdido a su titular
     hd_titu = [
         {"Monday": "Dra. Sánchez", "Tuesday": "Dr. Ríos Rull", "Wednesday": "Dra. Sánchez", "Thursday": "Dra. Martín", "Friday": "Dra. Sánchez"}.get(dia_en),
         {"Monday": "Dra. Hernández", "Tuesday": "Dra. Hernández", "Thursday": "Dra. Hernández", "Friday": "Dra. Hernández"}.get(dia_en),
@@ -337,7 +373,6 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         hd[2] = fill_position(hd_titu[2], hd_sust, True)
     else: hd[0] = hd[1] = hd[2] = "❌ [VACÍO]"
 
-    # P3 SOLO se rellena si el HD no tiene huecos.
     hd_lleno = all("VACÍO" not in h for h in hd[:3])
     if hd_lleno:
         p_hoy[2] = fill_position(p_titu[2], p_sust, False)
