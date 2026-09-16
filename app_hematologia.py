@@ -293,7 +293,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         res["Hem"] = ""; res["Banco"] = ["", ""]; res["IC_Ext"] = ""; res["IC_Virt"] = ""
         res["Planta"] = ["🛑 FESTIVO", "🛑 FESTIVO", "🛑 FESTIVO"]
         res["H_Dia"] = ["🛑 FESTIVO", "🛑 FESTIVO", "🛑 FESTIVO"]
-        res["Ped"] = ""; res["IC_Hosp"] = ""; res["Busca"] = ""; res["Gestion"] = []
+        res["Ped"] = ""; res["IC_Hosp"] = ""; res["Gestion"] = []
         return res
 
     def asignar(m):
@@ -336,7 +336,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     # 4. PEDIATRÍA E IC HOSPITALARIA
     ic_hosp = []
     
-    # Jerarquía Pediatría: 1º González, 2º Peris (Simult), 3º De Ramos (Simult)
+    # Jerarquía Pediatría
     if asignar("Dr. González"): res["Ped"] = "✅ Dr. González"
     elif "Dra. Peris" not in ausentes + salientes + bajas: res["Ped"] = "✅ Dra. Peris (Simult. Banco)"
     elif "Dr. De Ramos" not in ausentes + salientes + bajas: res["Ped"] = "🔄 Dr. De Ramos (Simult.)"
@@ -418,7 +418,12 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
 
     if p_hoy[2] == "":
         hd_lleno = all(h != "" for h in hd[:3])
-        if hd_lleno: p_hoy[2] = fill_spot('P', 2, p_sust)
+        if hd_lleno: 
+            p_hoy[2] = fill_spot('P', 2, p_sust)
+        elif "Dra. Herrero" not in asignados:
+            # Rescate específico para Dra. Herrero en Planta si HD no está lleno pero ella está libre
+            asignados.append("Dra. Herrero")
+            p_hoy[2] = "🔄 Dra. Herrero"
 
     p_filled = [i for i, x in enumerate(p_hoy) if x != ""]
     hd_filled = [i for i, x in enumerate(hd[:3]) if x != ""]
@@ -473,15 +478,6 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         if "Dr. Ríos Rull" in asignados: res["IC_Ext"] = "✅ Dr. Ríos Rull (Simult.)"
         else: res["IC_Ext"] = "✅ Dr. Ríos Rull"; asignados.append("Dr. Ríos Rull")
     else: res["IC_Ext"] = "❌ [VACÍO]"
-
-    # 9. BUSCA DEFINITIVO 
-    busca_prioridad = ["Dra. Herrero", "Dra. Martín", "Dr. De Ramos", "Dr. García Roulston", "Dra. Rodríguez Esteban"]
-    med_busca_final = next((m for m in busca_prioridad if m not in asignados and m in plantilla), None)
-    
-    if med_busca_final: 
-        res["Busca"] = f"🚨 {med_busca_final}"
-        asignados.append(med_busca_final)
-    else: res["Busca"] = "❌ [SIN BUSCA]"
 
     res["H_Dia"] = [f"HD{i+1}: {h}" for i, h in enumerate(hd) if h != ""]
     res["Planta"] = [f"P{i+1}: {p}" for i, p in enumerate(p_hoy)]
@@ -553,8 +549,6 @@ if df_g is not None:
                 st.markdown(f"IC Ext: {d['IC_Ext']}")
                 st.markdown(f"**Ped:** {d['Ped']}")
                 st.divider()
-                st.markdown(f"**Busca:** {d['Busca']}")
-                st.divider()
                 st.subheader("📂 Gestión")
                 if d["Gestion"]:
                     for m in d["Gestion"]: st.markdown(f"💼 {m}")
@@ -568,7 +562,7 @@ if df_g is not None:
 
     elif modo == "Semanal":
         lunes = f_sel - timedelta(days=f_sel.weekday())
-        pts = ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P1", "P2", "P3", "P Resi", "HD1", "HD2", "HD3", "HD Res", "Cons 1", "Cons 2", "Cons 3", "Cons Resi", "Coagulación", "Sur", "TAO", "Diag 1", "Diag 2", "Diag Resi", "Hem", "Banco 1", "Banco 2", "Banco Resi", "Busca", "IC Hosp", "IC Virt", "IC Ext", "Pediatría", "Gestión", "Otras Rotaciones"]
+        pts = ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P1", "P2", "P3", "P Resi", "HD1", "HD2", "HD3", "HD Res", "Cons 1", "Cons 2", "Cons 3", "Cons Resi", "Coagulación", "Sur", "TAO", "Diag 1", "Diag 2", "Diag Resi", "Hem", "Banco 1", "Banco 2", "Banco Resi", "IC Hosp", "IC Virt", "IC Ext", "Pediatría", "Gestión", "Otras Rotaciones"]
         tb = {p: [] for p in pts}
         cols = []
         for i in range(5):
@@ -616,7 +610,6 @@ if df_g is not None:
                 tb["Banco 1"].append(c(d["Banco"][0]))
                 tb["Banco 2"].append(c(d["Banco"][1]))
                 tb["Banco Resi"].append(" / ".join(d["Resi_Banco"]) if d["Resi_Banco"] else "")
-                tb["Busca"].append(d["Busca"].replace("🚨 ",""))
                 tb["IC Hosp"].append(c(d["IC_Hosp"]))
                 tb["IC Virt"].append(c(d["IC_Virt"]))
                 tb["IC Ext"].append(c(d["IC_Ext"]))
