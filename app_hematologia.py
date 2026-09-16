@@ -8,7 +8,7 @@ import os
 st.set_page_config(page_title="Gestor Hematología 2026", layout="wide")
 st.markdown("""<style>@media print { header, [data-testid="stSidebar"], [data-testid="stToolbar"] { display: none !important; } .main { max-width: 100% !important; padding: 0 !important; } @page { size: landscape; margin: 1cm; } }</style>""", unsafe_allow_html=True)
 
-# Lista Maestra Homogeneizada (Dr./Dra. + 1º Apellido. Si coinciden: Inicial + 2º Apellido)
+# Lista Maestra Adjuntos
 plantilla = ["Dra. Busnego", "Dr. Moreno", "Dra. Sánchez", "Dra. Hernández", "Dra. Martín", "Dra. Alberich", "Dr. Breña", "Dra. Notario", "Dr. Figueroa", "Dra. Peris", "Dra. Montalvo", "Dr. R. de Paz", "Dra. Herrero", "Dra. Lorenzo", "Dra. Rodríguez", "Dra. Hernanz", "Dra. Marrero", "Dr. González", "Dr. García", "Dr. R. Rull", "Dr. De Ramos"]
 
 meses_es_str = {"ENERO":1, "FEBRERO":2, "MARZO":3, "ABRIL":4, "MAYO":5, "JUNIO":6, "JULIO":7, "AGOSTO":8, "SEPTIEMBRE":9, "OCTUBRE":10, "NOVIEMBRE":11, "DICIEMBRE":12}
@@ -22,13 +22,34 @@ def limpiar_texto(s):
     s = re.sub(r'[^\w\s]', '', s)
     return ' '.join(s.split())
 
+# NUEVO: Estandarizador de nombres de Residentes
+def formatear_resi(n_orig):
+    n = limpiar_texto(str(n_orig))
+    if not n: return ""
+    
+    # Mapeos directos para asegurar homogeneidad absoluta
+    if "CLIMENT" in n or "JULIA" in n and "GONZALEZ" in n: return "Dra. Climent"
+    if "DOS SANTOS" in n: return "Dra. R. Dos Santos"
+    if "RUBIO" in n: return "Dra. R. Rubio"
+    if "MARCAL" in n: return "Dra. Marcal"
+    if "MARTINEZ" in n: return "Dra. Martínez"
+    if "QUINTERO" in n: return "Dr. Quintero"
+    if "CRESPO" in n: return "Dra. Crespo"
+    if "OLIVA" in n: return "Dra. Oliva"
+    
+    # Fallback genérico para nuevos residentes
+    parts = n.split()
+    if not parts: return ""
+    fem_names = ["CARMEN", "MARIA", "SOFIA", "JULIA", "GLORIA", "VALERIA", "ANA", "PATRICIA", "SILVIA", "ELENA", "MINERVA", "NEREA", "YAXIRAXI", "NURIA", "CRISTINA", "LAURA"]
+    genero = "Dra." if parts[0].endswith("A") or parts[0] in fem_names else "Dr."
+    apellido = parts[1].capitalize() if len(parts) > 1 else parts[0].capitalize()
+    return f"{genero} {apellido}"
+
 def match_medico(nombre_texto, med):
     nt = limpiar_texto(nombre_texto)
     
-    # Filtro anti-residentes
     if "CLIMENT" in nt and "GONZALEZ" in med.upper(): return False
     
-    # Casos específicos para coincidencias exactas y nombres homogeneizados
     if med == "Dr. R. de Paz": return ("PAZ" in nt) or (("RIOS" in nt or "PABLO" in nt) and "RULL" not in nt)
     if med == "Dr. R. Rull": return "RULL" in nt
     if med == "Dr. García": return "ROULSTON" in nt or "KEVIN" in nt
@@ -36,7 +57,6 @@ def match_medico(nombre_texto, med):
     if med == "Dr. De Ramos": return "RAMOS" in nt
     if med == "Dra. Alberich": return "ALBERICH" in nt or "LABERICH" in nt
     
-    # Buscador general estricto por primer apellido
     mt = limpiar_texto(med).replace("DR. ", "").replace("DRA. ", "").replace("DR ", "").replace("DRA ", "").strip()
     apellido_principal = mt.split()[0]
     return apellido_principal in nt.split()
@@ -164,7 +184,7 @@ def extraer_diario(df, fecha_dt, is_vacaciones=False, is_resi=False):
                         if pd.notna(x) and isinstance(x, str):
                             txt = x.strip()
                             if txt.upper() not in ["FESTIVO", "VACACION", "LIBRE", "SÁBADO", "DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES"] and not txt.isdigit():
-                                enc.append(txt.title())
+                                enc.append(formatear_resi(txt))
             except: continue
         return list(set(enc)), False
 
@@ -184,9 +204,10 @@ def extraer_diario(df, fecha_dt, is_vacaciones=False, is_resi=False):
                                 enc.append(med)
                                 matched_any = True
                         if not matched_any:
-                            n_res = str(r.iloc[1]).strip().title() + " " + str(r.iloc[0]).strip().title() if len(r) > 1 else str(r.iloc[0]).strip().title()
-                            n_res = n_res.replace("Nan", "").replace("None", "").strip()
-                            if n_res: enc.append(f"{n_res} (Resi)")
+                            n_res_raw = str(r.iloc[1]).strip() + " " + str(r.iloc[0]).strip() if len(r) > 1 else str(r.iloc[0]).strip()
+                            n_res_raw = n_res_raw.replace("nan", "").replace("None", "").strip()
+                            if n_res_raw: 
+                                enc.append(f"{formatear_resi(n_res_raw)} (Resi)")
                 except Exception: continue
         else:
             col_dias_idx = -1
@@ -203,8 +224,9 @@ def extraer_diario(df, fecha_dt, is_vacaciones=False, is_resi=False):
                             enc.append(med)
                             matched_any = True
                     if not matched_any:
-                        n_res = nombre_celda.title().replace("Nan", "").replace("None", "").strip()
-                        if n_res: enc.append(f"{n_res} (Resi)")
+                        n_res_raw = nombre_celda.replace("nan", "").replace("None", "").strip()
+                        if n_res_raw: 
+                            enc.append(f"{formatear_resi(n_res_raw)} (Resi)")
         return list(set(enc)), False
     else:
         for _, r in df.iterrows():
@@ -257,12 +279,13 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
                         d_ini = pd.to_datetime(r[c_i], dayfirst=True)
                         d_fin = pd.to_datetime(r[c_f], dayfirst=True)
                         if d_ini.date() <= f_dt.date() <= d_fin.date():
-                            resi = str(r[c_res]).strip().title()
+                            resi_raw = str(r[c_res]).strip()
+                            resi = formatear_resi(resi_raw)
                             
-                            is_saliente = any(limpiar_texto(resi) in limpiar_texto(s) or limpiar_texto(s) in limpiar_texto(resi) for s in sal_resis)
-                            is_ausente = any(limpiar_texto(resi) in limpiar_texto(a) or limpiar_texto(a).replace(" (RESI)", "") in limpiar_texto(resi) for a in ausentes)
+                            is_saliente = resi in sal_resis
+                            is_ausente = any(resi == a.replace(" (Resi)", "") for a in ausentes)
 
-                            if not is_saliente and not is_ausente and resi.lower() not in ["nan", "none", ""]: 
+                            if not is_saliente and not is_ausente and resi != "": 
                                 rot_texto = str(r[c_rot]).strip()
                                 rot_up = rot_texto.upper()
                                 if any(k in rot_up for k in ["PLANTA", "HOSPITALIZACION", "HOSPITALIZACIÓN"]): resi_planta.append(resi)
@@ -302,8 +325,6 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         if m and m not in asignados:
             asignados.append(m); return True
         return False
-
-    blindados = ["Dra. Marrero", "Dra. Hernanz", "Dra. Lorenzo", "Dr. R. Rull", "Dr. R. de Paz", "Dr. González", "Dr. Moreno", "Dra. Rodríguez"]
 
     # 1. COAGULACIÓN Y SUR
     disp_rios, disp_mont = "Dr. R. de Paz" not in asignados, "Dra. Montalvo" not in asignados
@@ -365,7 +386,6 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         None
     ]
     
-    # Dra. Martín eliminada de Planta.
     p_sust = ["Dr. De Ramos", "Dra. Herrero"]
     hd_sust = ["Dra. Martín", "Dr. García", "Dr. De Ramos"] 
 
