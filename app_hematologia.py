@@ -223,7 +223,6 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     guardia_hoy_resis, fest_gr = extraer_diario(df_g_r, f_dt, is_vacaciones=False, is_resi=True)
     ausentes, fest_v = extraer_diario(df_v, f_dt, is_vacaciones=True)
     
-    # MOTOR DE LIBRANZAS: Respeta estrictamente sábado y domingo si hoy es lunes
     salientes, _ = extraer_diario(df_g, (f_dt - timedelta(days=1)), is_vacaciones=False)
     if dia_en == "Monday": 
         sal_mon, _ = extraer_diario(df_g, (f_dt - timedelta(days=2)), is_vacaciones=False)
@@ -347,7 +346,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     res["Hem"] = "✅ Dra. Alberich" if asignar("Dra. Alberich") else "❌ [VACÍO]"
     res["Banco"] = ["✅ Dr. Figueroa" if asignar("Dr. Figueroa") else "❌ [VACÍO]", "✅ Dra. Peris" if asignar("Dra. Peris") else "❌ [VACÍO]"]
 
-    # --- 6. ASIGNACIÓN ESTRICTA DE PLANTA Y HD ---
+    # 6. ASIGNACIÓN ESTRICTA DE PLANTA Y HD
     p_hoy = ["", "", ""]
     hd = ["", "", ""]
     
@@ -358,22 +357,19 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         None
     ]
     p_sust = ["Dr. García Roulston", "Dr. De Ramos", "Dra. Herrero", "Dra. Martín"]
-    hd_sust = ["Dra. Martín", "Dr. García Roulston", "Dr. De Ramos", "Dra. Herrero"] # Eliminada Dra. Rodriguez Esteban de aqui
+    hd_sust = ["Dra. Martín", "Dr. García Roulston", "Dr. De Ramos", "Dra. Herrero"] 
 
-    # Listas de Blindaje Cruzado (Para evitar que se pisen áreas)
     no_pisan_planta = ["Dra. Sánchez", "Dra. Hernández", "Dra. Lorenzo", "Dr. Ríos Rull", "Dr. Ríos de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz"]
     no_pisan_hd = ["Dr. Moreno", "Dra. Rodríguez Esteban", "Dra. Lorenzo", "Dr. Ríos Rull", "Dr. Ríos de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz"]
-    no_pisan_p1_p2 = ["Dra. Rodríguez Esteban"] # Solo hace P3
+    no_pisan_p1_p2 = ["Dra. Rodríguez Esteban"]
 
     def is_gest(m): return (dia_en=="Tuesday" and m=="Dra. Sánchez") or (dia_en=="Wednesday" and m=="Dra. Hernández")
 
-    # 6.1 Asignar Titulares incondicionalmente
     for i in range(2):
         if hd_titu[i] and asignar(hd_titu[i]): hd[i] = f"✅ {hd_titu[i]}"
     for i in range(3):
         if p_titu[i] and asignar(p_titu[i]): p_hoy[i] = f"✅ {p_titu[i]}"
 
-    # 6.2 Función de rellenado de huecos estricta
     def fill_spot(spot_type, spot_idx, sust_list):
         for s in sust_list:
             if s not in asignados:
@@ -412,12 +408,10 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         if hd[1] == "": hd[1] = fill_spot('HD', 1, hd_sust)
         if hd[2] == "": hd[2] = fill_spot('HD', 2, hd_sust)
 
-    # 6.3 P3: Solo se llena con sustituto si HD está lleno
     if p_hoy[2] == "":
         hd_lleno = all(h != "" for h in hd[:3])
         if hd_lleno: p_hoy[2] = fill_spot('P', 2, p_sust)
 
-    # 6.4 BALANCEADOR PLANTA VS HD
     p_filled = [i for i, x in enumerate(p_hoy) if x != ""]
     hd_filled = [i for i, x in enumerate(hd[:3]) if x != ""]
     
@@ -426,7 +420,6 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         for idx in [2, 0, 1]:
             if p_hoy[idx] != "":
                 med_name = p_hoy[idx].replace("✅", "").replace("🔄", "").replace("🟦", "").replace("⚠️", "").split("(")[0].strip()
-                # Ni Busnego, ni Moreno, ni R. Esteban son movibles al HD
                 if med_name not in ["Dr. Moreno", "Dra. Rodríguez Esteban", "Dra. Busnego"]:
                     movable_idx = idx
                     break
@@ -446,23 +439,26 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         p_filled = [i for i, x in enumerate(p_hoy) if x != ""]
         hd_filled = [i for i, x in enumerate(hd[:3]) if x != ""]
 
-    # Limpieza visual final
     for i in range(3):
         if p_hoy[i] == "": p_hoy[i] = "❌ [VACÍO]"
         if hd[i] == "": hd[i] = "❌ [VACÍO]"
 
-    # 8. INTERCONSULTA VIRTUAL Y EXTERNA
+    # 8. INTERCONSULTA VIRTUAL Y EXTERNA (AHORA MARCA ❌ SI FALLA EL TITULAR)
     res["IC_Virt"] = ""
     if dia_en == "Friday":
         if "Dra. Lorenzo" not in ausentes + salientes + bajas: 
             res["IC_Virt"] = "✅ Dra. Lorenzo"
             if "Dra. Lorenzo" not in asignados: asignados.append("Dra. Lorenzo")
         elif "Dr. Ríos Rull" not in ausentes + salientes + bajas: res["IC_Virt"] = "✅ Dr. Ríos Rull (Simult.)"
-    elif dia_en == "Wednesday" and "Dr. Ríos Rull" not in ausentes + salientes + bajas: res["IC_Virt"] = "✅ Dr. Ríos Rull (Simult.)"
+        else: res["IC_Virt"] = "❌ [VACÍO]"
+    elif dia_en == "Wednesday":
+        if "Dr. Ríos Rull" not in ausentes + salientes + bajas: res["IC_Virt"] = "✅ Dr. Ríos Rull (Simult.)"
+        else: res["IC_Virt"] = "❌ [VACÍO]"
     elif dia_en == "Tuesday":
         if "Dra. Hernanz" not in ausentes + salientes + bajas:
             res["IC_Virt"] = "✅ Dra. Hernanz"
             if "Dra. Hernanz" not in asignados: asignados.append("Dra. Hernanz")
+        else: res["IC_Virt"] = "❌ [VACÍO]" # Alerta visual si la titular falla
 
     if "Dr. Ríos Rull" not in ausentes + salientes + bajas:
         if "Dr. Ríos Rull" in asignados: res["IC_Ext"] = "✅ Dr. Ríos Rull (Simult.)"
