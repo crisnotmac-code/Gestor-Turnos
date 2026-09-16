@@ -11,10 +11,8 @@ st.markdown("""<style>@media print { header, [data-testid="stSidebar"], [data-te
 # Lista Maestra
 plantilla = ["Dra. Busnego", "Dr. Moreno", "Dra. Sánchez", "Dra. Hernández", "Dra. Martín", "Dra. Alberich", "Dr. Breña", "Dra. Notario", "Dr. Figueroa", "Dra. Peris", "Dra. Montalvo", "Dr. Ríos de Paz", "Dra. Herrero", "Dra. Lorenzo", "Dra. Rodríguez Esteban", "Dra. Hernanz", "Dra. Marrero", "Dr. González", "Dr. García Roulston", "Dr. Ríos Rull", "Dr. De Ramos"]
 
-# Médicos que NUNCA deben usarse para rellenar huecos de Planta ni HD
 blindados = ["Dra. Marrero", "Dra. Hernanz", "Dra. Lorenzo", "Dr. Ríos Rull", "Dr. Ríos de Paz", "Dr. González"]
 
-# Diccionarios de meses
 meses_es_str = {"ENERO":1, "FEBRERO":2, "MARZO":3, "ABRIL":4, "MAYO":5, "JUNIO":6, "JULIO":7, "AGOSTO":8, "SEPTIEMBRE":9, "OCTUBRE":10, "NOVIEMBRE":11, "DICIEMBRE":12}
 meses_es = {1:"ENERO", 2:"FEBRERO", 3:"MARZO", 4:"ABRIL", 5:"MAYO", 6:"JUNIO", 7:"JULIO", 8:"AGOSTO", 9:"SEPTIEMBRE", 10:"OCTUBRE", 11:"NOVIEMBRE", 12:"DICIEMBRE"}
 
@@ -27,17 +25,13 @@ def limpiar_texto(s):
 def match_medico(nombre_texto, med):
     nt = limpiar_texto(nombre_texto)
     mt = limpiar_texto(med).replace("DR. ", "").replace("DRA. ", "").replace("DR ", "").replace("DRA ", "").strip()
-    
-    # Filtro anti-residentes para que Julia Climent González no bloquee al Dr. González
     if "CLIMENT" in nt and "GONZALEZ" in mt: return False
-
     if "RIOS DE PAZ" in mt: return ("PAZ" in nt) or (("RIOS" in nt or "PABLO" in nt) and "RULL" not in nt)
     if "RIOS RULL" in mt: return "RULL" in nt
     if "GARCIA ROULSTON" in mt: return "ROULSTON" in nt or "KEVIN" in nt or "GARCIA" in nt
     if "RODRIGUEZ ESTEBAN" in mt: return "RODRIGUEZ" in nt
     if "ALBERICH" in mt: return "ALBERICH" in nt or "LABERICH" in nt
     if "DE RAMOS" in mt: return "RAMOS" in nt
-    
     words = [w for w in mt.split() if len(w) > 3]
     for w in words:
         if w in nt: return True
@@ -48,16 +42,13 @@ def parse_vacaciones(texto, mes_por_defecto):
     bloques = [b.strip() for b in texto.split(',') if b.strip()]
     parsed_ranges = []
     current_month = None
-    
     for b in reversed(bloques):
         for m_str, m_num in meses_es_str.items():
             if m_str in b:
                 if current_month is None: current_month = m_num
                 break
         if current_month is not None: break
-        
-    if current_month is None:
-        current_month = mes_por_defecto
+    if current_month is None: current_month = mes_por_defecto
 
     for bloque in reversed(bloques):
         if "AL" in bloque or "-" in bloque:
@@ -69,30 +60,23 @@ def parse_vacaciones(texto, mes_por_defecto):
                 for m_str, m_num in meses_es_str.items():
                     if m_str in p2: m2 = m_num; break
                 if m2: current_month = m2
-                
                 m1 = m2
                 for m_str, m_num in meses_es_str.items():
                     if m_str in p1: m1 = m_num; break
-                
                 nums1 = [int(s) for s in re.findall(r'\d+', p1)]
                 nums2 = [int(s) for s in re.findall(r'\d+', p2)]
-                
                 if nums1 and nums2:
                     ini, fin = nums1[-1], nums2[0]
-                    if m1 == m2 and m2 is not None and ini > fin:
-                        m1 = m2 - 1 if m2 > 1 else 12
-                    if m1 is not None and m2 is not None:
-                        parsed_ranges.append((ini, m1, fin, m2))
+                    if m1 == m2 and m2 is not None and ini > fin: m1 = m2 - 1 if m2 > 1 else 12
+                    if m1 is not None and m2 is not None: parsed_ranges.append((ini, m1, fin, m2))
         else:
             m = current_month
             for m_str, m_num in meses_es_str.items():
                 if m_str in bloque: m = m_num; break
             if m: current_month = m
-            
             nums = [int(s) for s in re.findall(r'\d+', bloque)]
             for n in nums:
-                if m is not None:
-                    parsed_ranges.append((n, m, n, m))
+                if m is not None: parsed_ranges.append((n, m, n, m))
     return parsed_ranges
 
 def esta_en_rango(dia, mes, rangos):
@@ -116,21 +100,18 @@ def is_matching_date(val, target_date):
         except: return val == target_date.date()
     try:
         val_str = str(val).strip()
-        if val_str and val_str.replace('.','',1).isdigit() and int(float(val_str)) == target_date.day:
-            return True
+        if val_str and val_str.replace('.','',1).isdigit() and int(float(val_str)) == target_date.day: return True
     except: pass
     return False
 
 def cargar_todo(archivo):
     try:
         if isinstance(archivo, str):
-            if not os.path.exists(archivo):
-                return None, None, None, None
+            if not os.path.exists(archivo): return None, None, None, None
             f = archivo
         elif hasattr(archivo, 'getvalue'):
             f = io.BytesIO(archivo.getvalue())
-        else:
-            f = archivo
+        else: f = archivo
             
         xl = pd.ExcelFile(f)
         def get_sheet(keywords, header_mode=0):
@@ -140,10 +121,9 @@ def cargar_todo(archivo):
                     if kw in sheet_up: return xl.parse(sheet, header=header_mode)
             return None
 
-        # Guardias forzadas a header=None para asegurar que el día 1 no se escape
         df_g = get_sheet(["GUARDIAS", "GUARDIA"], header_mode=None)
         df_v = get_sheet(["VACACIONES", "VACACION", "LIBRE"], header_mode=0)
-        df_g_r = get_sheet(["GUARDIAS_R", "RESIDENTES_G"], header_mode=None)
+        df_g_r = get_sheet(["GUARDIAS_R", "RESIDENTES_G", "RESIS"], header_mode=None)
         df_rot_r = get_sheet(["ROTACIONES_R", "ROTACION"], header_mode=0)
         
         def clean_df(d):
@@ -153,15 +133,30 @@ def cargar_todo(archivo):
         return clean_df(df_g), clean_df(df_v), clean_df(df_g_r), clean_df(df_rot_r)
     except Exception as e:
         st.error(f"🚨 Error técnico leyendo el Excel: {str(e)}")
-        st.info("💡 PISTA: Si el error dice algo de 'openpyxl', significa que tienes que crear el archivo requirements.txt en tu GitHub y reiniciar la app.")
+        st.info("💡 PISTA: Asegúrate de tener el archivo requirements.txt en tu GitHub y reiniciar la app.")
         return None, None, None, None
 
-def extraer_diario(df, fecha_dt, is_vacaciones=False):
+def extraer_diario(df, fecha_dt, is_vacaciones=False, is_resi=False):
     if df is None or df.empty: return [], False
     enc = []
     es_festivo = False
     mes_str = meses_es[fecha_dt.month]
     
+    if is_resi:
+        # Lector libre para residentes (no requiere coincidir con la plantilla oficial)
+        for _, r in df.iterrows():
+            try:
+                val = r.iloc[0]
+                if is_matching_date(val, fecha_dt):
+                    for x in r.values[1:]:
+                        if pd.notna(x) and isinstance(x, str):
+                            txt = x.strip()
+                            # Ignorar palabras clave y números
+                            if txt.upper() not in ["FESTIVO", "VACACION", "LIBRE", "SÁBADO", "DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES"] and not txt.isdigit():
+                                enc.append(txt.title())
+            except: continue
+        return list(set(enc)), False
+
     if is_vacaciones:
         c_ini = next((c for c in df.columns if "ini" in str(c).lower()), None)
         c_fin = next((c for c in df.columns if "fin" in str(c).lower()), None)
@@ -174,14 +169,12 @@ def extraer_diario(df, fecha_dt, is_vacaciones=False):
                         txt_full = " ".join([str(x).upper() for x in r.values if pd.notna(x)])
                         for med in plantilla:
                             if match_medico(txt_full, med): enc.append(med)
-                except Exception as e: continue
+                except Exception: continue
         else:
             col_dias_idx = -1
             for i, col in enumerate(df.columns):
-                if "DIA" in str(col).upper() or "LIBRE" in str(col).upper():
-                    col_dias_idx = i; break
+                if "DIA" in str(col).upper() or "LIBRE" in str(col).upper(): col_dias_idx = i; break
             if col_dias_idx == -1: col_dias_idx = df.shape[1] - 1
-                
             for _, r in df.iterrows():
                 nombre_celda = str(r.iloc[0]) + " " + str(r.iloc[1]) if df.shape[1] > 1 else str(r.iloc[0])
                 texto_dias = str(r.iloc[col_dias_idx])
@@ -208,19 +201,18 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     dia_en = f_dt.strftime('%A')
     
     guardia_hoy, fest_g = extraer_diario(df_g, f_dt, is_vacaciones=False)
-    guardia_hoy_resis, fest_gr = extraer_diario(df_g_r, f_dt, is_vacaciones=False)
+    guardia_hoy_resis, fest_gr = extraer_diario(df_g_r, f_dt, is_vacaciones=False, is_resi=True)
     ausentes, fest_v = extraer_diario(df_v, f_dt, is_vacaciones=True)
     
-    # Motor Matemático para extraer los Salientes
     salientes, _ = extraer_diario(df_g, (f_dt - timedelta(days=1)), is_vacaciones=False)
     if dia_en == "Monday": 
         sal_mon, _ = extraer_diario(df_g, (f_dt - timedelta(days=2)), is_vacaciones=False)
         salientes.extend(sal_mon)
     salientes = list(set(salientes))
 
-    sal_resis, _ = extraer_diario(df_g_r, (f_dt - timedelta(days=1)), is_vacaciones=False)
+    sal_resis, _ = extraer_diario(df_g_r, (f_dt - timedelta(days=1)), is_vacaciones=False, is_resi=True)
     if dia_en == "Monday": 
-        salr_mon, _ = extraer_diario(df_g_r, (f_dt - timedelta(days=2)), is_vacaciones=False)
+        salr_mon, _ = extraer_diario(df_g_r, (f_dt - timedelta(days=2)), is_vacaciones=False, is_resi=True)
         sal_resis.extend(salr_mon)
     sal_resis = list(set(sal_resis))
     
@@ -229,12 +221,21 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     rot_hoy = []
     if df_rot_r is not None and not df_rot_r.empty:
         try:
-            c_res, c_rot, c_i, c_f = [c for c in df_rot_r.columns if 'res' in str(c).lower()][0], [c for c in df_rot_r.columns if 'rot' in str(c).lower() or 'pues' in str(c).lower()][0], [c for c in df_rot_r.columns if 'ini' in str(c).lower()][0], [c for c in df_rot_r.columns if 'fin' in str(c).lower()][0]
+            c_res = next((c for c in df_rot_r.columns if 'res' in str(c).lower() or 'nom' in str(c).lower()), df_rot_r.columns[0])
+            c_rot = next((c for c in df_rot_r.columns if 'rot' in str(c).lower() or 'pues' in str(c).lower()), df_rot_r.columns[1])
+            c_i = next((c for c in df_rot_r.columns if 'ini' in str(c).lower() or 'desd' in str(c).lower()), df_rot_r.columns[2])
+            c_f = next((c for c in df_rot_r.columns if 'fin' in str(c).lower() or 'hast' in str(c).lower()), df_rot_r.columns[3])
+            
             for _, r in df_rot_r.iterrows():
                 try:
-                    if pd.to_datetime(r[c_i], dayfirst=True).date() <= f_dt.date() <= pd.to_datetime(r[c_f], dayfirst=True).date():
-                        resi = str(r[c_res]).strip()
-                        if resi not in sal_resis and resi.lower() not in ["nan", "none", ""]: rot_hoy.append(f"{resi} ({str(r[c_rot]).strip()})")
+                    if pd.notna(r[c_i]) and pd.notna(r[c_f]):
+                        d_ini = pd.to_datetime(r[c_i], dayfirst=True)
+                        d_fin = pd.to_datetime(r[c_f], dayfirst=True)
+                        if d_ini.date() <= f_dt.date() <= d_fin.date():
+                            resi = str(r[c_res]).strip().title()
+                            # Validar que no esté de saliente
+                            if resi not in [s.title() for s in sal_resis] and resi.lower() not in ["nan", "none", ""]: 
+                                rot_hoy.append(f"{resi} ({str(r[c_rot]).strip()})")
                 except: continue
         except: pass
 
@@ -385,8 +386,28 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         rescate_extremo(p_hoy, 2)
     elif not hd_lleno_final: p_hoy[2] = "❌ [VACÍO]"
 
+    # --- 7.5 NUEVO: BALANCEADOR OBLIGATORIO PLANTA VS HD ---
+    # Garantiza que Planta NUNCA tenga más médicos que Hospital de Día
+    p_filled = [i for i, x in enumerate(p_hoy) if "VACÍO" not in x and x != ""]
+    hd_filled = [i for i, x in enumerate(hd[:3]) if "VACÍO" not in x and x != ""]
+    
+    while len(p_filled) > len(hd_filled):
+        p_to_move = p_filled[-1] # Extraemos al último de planta
+        free_hd = [i for i in range(3) if i not in hd_filled]
+        if not free_hd: break # Por seguridad
+        
+        hd_idx = free_hd[0]
+        med_text = p_hoy[p_to_move]
+        med_name = med_text.replace("✅", "").replace("🔄", "").replace("🟦", "").replace("⚠️", "").split("(")[0].strip()
+        
+        hd[hd_idx] = f"⚖️ {med_name} (Balanceado)"
+        p_hoy[p_to_move] = "❌ [VACÍO]"
+        
+        p_filled = [i for i, x in enumerate(p_hoy) if "VACÍO" not in x and x != ""]
+        hd_filled = [i for i, x in enumerate(hd[:3]) if "VACÍO" not in x and x != ""]
+
     # 8. INTERCONSULTA VIRTUAL Y EXTERNA
-    res["IC_Virt"] = "" # Valor por defecto seguro para evitar errores
+    res["IC_Virt"] = ""
     if dia_en == "Friday":
         if "Dra. Lorenzo" not in ausentes + salientes + bajas: 
             res["IC_Virt"] = "✅ Dra. Lorenzo"
@@ -483,6 +504,12 @@ if df_g is not None:
                 if d["Gestion"]:
                     for m in d["Gestion"]: st.markdown(f"💼 {m}")
                 else: st.markdown("No personal libre.")
+                
+            st.divider()
+            st.subheader("🎓 Residentes")
+            if d["Residentes"]:
+                for r in d["Residentes"]: st.markdown(f"🔹 {r}")
+            else: st.markdown("Ninguno activo o no se han cargado datos.")
 
     elif modo == "Semanal":
         lunes = f_sel - timedelta(days=f_sel.weekday())
@@ -512,7 +539,7 @@ if df_g is not None:
                         else: nrms.append(f"{cod}: {nm}")
                 while len(nrms) < 3: nrms.append("")
                 
-                def c(v): return v.replace("✅ ","").replace("🟦 ","").replace("⚠️ ","").replace("❗ ","")
+                def c(v): return v.replace("✅ ","").replace("🟦 ","").replace("⚠️ ","").replace("❗ ","").replace("⚖️ ","⚖️ ")
                 def g(l, x): return c(l[x].split(": ")[1] if len(l)>x and ": " in l[x] else "")
                 
                 tb["Saliente"].append(d.get("Saliente", ""))
@@ -544,7 +571,6 @@ if df_g is not None:
                 tb["Residentes"].append(" / ".join(d["Residentes"]) if d["Residentes"] else "")
             
         df = pd.DataFrame(tb, index=cols).T
-        # Eliminamos filas que estén completamente en blanco durante toda la semana para que no ensucien
         for r in ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "Gestión", "Residentes"]:
             if all(x == "" for x in df.loc[r]): df = df.drop(r)
         st.table(df)
