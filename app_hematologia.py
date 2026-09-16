@@ -17,8 +17,10 @@ meses_es = {1:"ENERO", 2:"FEBRERO", 3:"MARZO", 4:"ABRIL", 5:"MAYO", 6:"JUNIO", 7
 def limpiar_texto(s):
     if pd.isna(s): return ""
     s = str(s).upper()
-    for k, v in {"Á":"A", "É":"E", "Í":"I", "Ó":"O", "Ú":"U"}.items(): s = s.replace(k, v)
-    return s
+    # Sustituimos guiones por espacios y eliminamos espacios dobles para evitar fallos como "Martínez-Carrasco" vs "Martinez Carrasco"
+    for k, v in {"Á":"A", "É":"E", "Í":"I", "Ó":"O", "Ú":"U", "-":" "}.items(): 
+        s = s.replace(k, v)
+    return ' '.join(s.split())
 
 def match_medico(nombre_texto, med):
     nt = limpiar_texto(nombre_texto)
@@ -253,6 +255,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
                         d_fin = pd.to_datetime(r[c_f], dayfirst=True)
                         if d_ini.date() <= f_dt.date() <= d_fin.date():
                             resi = str(r[c_res]).strip().title()
+                            
                             is_saliente = any(limpiar_texto(resi) in limpiar_texto(s) or limpiar_texto(s) in limpiar_texto(resi) for s in sal_resis)
                             is_ausente = any(limpiar_texto(resi) in limpiar_texto(a) or limpiar_texto(a).replace(" (RESI)", "") in limpiar_texto(resi) for a in ausentes)
 
@@ -443,7 +446,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         if p_hoy[i] == "": p_hoy[i] = "❌ [VACÍO]"
         if hd[i] == "": hd[i] = "❌ [VACÍO]"
 
-    # 8. INTERCONSULTA VIRTUAL Y EXTERNA (AHORA MARCA ❌ SI FALLA EL TITULAR)
+    # 8. INTERCONSULTA VIRTUAL Y EXTERNA
     res["IC_Virt"] = ""
     if dia_en == "Friday":
         if "Dra. Lorenzo" not in ausentes + salientes + bajas: 
@@ -458,7 +461,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         if "Dra. Hernanz" not in ausentes + salientes + bajas:
             res["IC_Virt"] = "✅ Dra. Hernanz"
             if "Dra. Hernanz" not in asignados: asignados.append("Dra. Hernanz")
-        else: res["IC_Virt"] = "❌ [VACÍO]" # Alerta visual si la titular falla
+        else: res["IC_Virt"] = "❌ [VACÍO]"
 
     if "Dr. Ríos Rull" not in ausentes + salientes + bajas:
         if "Dr. Ríos Rull" in asignados: res["IC_Ext"] = "✅ Dr. Ríos Rull (Simult.)"
