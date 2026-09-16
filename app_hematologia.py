@@ -8,13 +8,12 @@ import os
 st.set_page_config(page_title="Gestor Hematología 2026", layout="wide")
 st.markdown("""<style>@media print { header, [data-testid="stSidebar"], [data-testid="stToolbar"] { display: none !important; } .main { max-width: 100% !important; padding: 0 !important; } @page { size: landscape; margin: 1cm; } }</style>""", unsafe_allow_html=True)
 
-# Lista Maestra (Dra. Oliva eliminada)
+# Lista Maestra
 plantilla = ["Dra. Busnego", "Dr. Moreno", "Dra. Sánchez", "Dra. Hernández", "Dra. Martín", "Dra. Alberich", "Dr. Breña", "Dra. Notario", "Dr. Figueroa", "Dra. Peris", "Dra. Montalvo", "Dr. Ríos de Paz", "Dra. Herrero", "Dra. Lorenzo", "Dra. Rodríguez Esteban", "Dra. Hernanz", "Dra. Marrero", "Dr. González", "Dr. García Roulston", "Dr. Ríos Rull", "Dr. De Ramos"]
 
 # Médicos que NUNCA deben usarse para rellenar huecos de Planta ni HD
 blindados = ["Dra. Marrero", "Dra. Hernanz", "Dra. Lorenzo", "Dr. Ríos Rull", "Dr. Ríos de Paz", "Dr. González"]
 
-# Diccionarios de meses
 meses_es_str = {"ENERO":1, "FEBRERO":2, "MARZO":3, "ABRIL":4, "MAYO":5, "JUNIO":6, "JULIO":7, "AGOSTO":8, "SEPTIEMBRE":9, "OCTUBRE":10, "NOVIEMBRE":11, "DICIEMBRE":12}
 meses_es = {1:"ENERO", 2:"FEBRERO", 3:"MARZO", 4:"ABRIL", 5:"MAYO", 6:"JUNIO", 7:"JULIO", 8:"AGOSTO", 9:"SEPTIEMBRE", 10:"OCTUBRE", 11:"NOVIEMBRE", 12:"DICIEMBRE"}
 
@@ -28,12 +27,11 @@ def match_medico(nombre_texto, med):
     nt = limpiar_texto(nombre_texto)
     mt = limpiar_texto(med).replace("DR. ", "").replace("DRA. ", "").replace("DR ", "").replace("DRA ", "").strip()
     
-    # Filtro anti-residentes para que Julia Climent González no bloquee al Dr. González
     if "CLIMENT" in nt and "GONZALEZ" in mt: return False
 
     if "RIOS DE PAZ" in mt: return ("PAZ" in nt) or (("RIOS" in nt or "PABLO" in nt) and "RULL" not in nt)
     if "RIOS RULL" in mt: return "RULL" in nt
-    if "GARCIA ROULSTON" in mt: return "ROULSTON" in nt or "KEVIN" in nt or "GARCIA" in nt
+    if "GARCIA ROULSTON" in mt: return "ROULSTON" in nt or "KEVIN" in nt or "GARCIA" in mt
     if "RODRIGUEZ ESTEBAN" in mt: return "RODRIGUEZ" in nt
     if "ALBERICH" in mt: return "ALBERICH" in nt or "LABERICH" in nt
     if "DE RAMOS" in mt: return "RAMOS" in nt
@@ -140,7 +138,6 @@ def cargar_todo(archivo):
                     if kw in sheet_up: return xl.parse(sheet, header=header_mode)
             return None
 
-        # Guardias forzadas a header=None para asegurar que el día 1 no se escape
         df_g = get_sheet(["GUARDIAS", "GUARDIA"], header_mode=None)
         df_v = get_sheet(["VACACIONES", "VACACION", "LIBRE"], header_mode=0)
         df_g_r = get_sheet(["GUARDIAS_R", "RESIDENTES_G", "RESIS"], header_mode=None)
@@ -153,7 +150,6 @@ def cargar_todo(archivo):
         return clean_df(df_g), clean_df(df_v), clean_df(df_g_r), clean_df(df_rot_r)
     except Exception as e:
         st.error(f"🚨 Error técnico leyendo el Excel: {str(e)}")
-        st.info("💡 PISTA: Si el error dice algo de 'openpyxl', significa que tienes que crear el archivo requirements.txt en tu GitHub y reiniciar la app.")
         return None, None, None, None
 
 def extraer_diario(df, fecha_dt, is_vacaciones=False, is_resi=False):
@@ -163,7 +159,6 @@ def extraer_diario(df, fecha_dt, is_vacaciones=False, is_resi=False):
     mes_str = meses_es[fecha_dt.month]
     
     if is_resi:
-        # Lector libre para residentes (no requiere coincidir con la plantilla oficial)
         for _, r in df.iterrows():
             try:
                 val = r.iloc[0]
@@ -171,7 +166,6 @@ def extraer_diario(df, fecha_dt, is_vacaciones=False, is_resi=False):
                     for x in r.values[1:]:
                         if pd.notna(x) and isinstance(x, str):
                             txt = x.strip()
-                            # Ignorar palabras clave y números
                             if txt.upper() not in ["FESTIVO", "VACACION", "LIBRE", "SÁBADO", "DOMINGO", "LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES"] and not txt.isdigit():
                                 enc.append(txt.title())
             except: continue
@@ -189,14 +183,12 @@ def extraer_diario(df, fecha_dt, is_vacaciones=False, is_resi=False):
                         txt_full = " ".join([str(x).upper() for x in r.values if pd.notna(x)])
                         for med in plantilla:
                             if match_medico(txt_full, med): enc.append(med)
-                except Exception as e: continue
+                except Exception: continue
         else:
             col_dias_idx = -1
             for i, col in enumerate(df.columns):
-                if "DIA" in str(col).upper() or "LIBRE" in str(col).upper():
-                    col_dias_idx = i; break
+                if "DIA" in str(col).upper() or "LIBRE" in str(col).upper(): col_dias_idx = i; break
             if col_dias_idx == -1: col_dias_idx = df.shape[1] - 1
-                
             for _, r in df.iterrows():
                 nombre_celda = str(r.iloc[0]) + " " + str(r.iloc[1]) if df.shape[1] > 1 else str(r.iloc[0])
                 texto_dias = str(r.iloc[col_dias_idx])
@@ -226,7 +218,6 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     guardia_hoy_resis, fest_gr = extraer_diario(df_g_r, f_dt, is_vacaciones=False, is_resi=True)
     ausentes, fest_v = extraer_diario(df_v, f_dt, is_vacaciones=True)
     
-    # Motor Matemático para extraer los Salientes
     salientes, _ = extraer_diario(df_g, (f_dt - timedelta(days=1)), is_vacaciones=False)
     if dia_en == "Monday": 
         sal_mon, _ = extraer_diario(df_g, (f_dt - timedelta(days=2)), is_vacaciones=False)
@@ -241,7 +232,9 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     
     asignados = list(set(ausentes + bajas + salientes))
 
-    rot_hoy = []
+    # Clasificación de Residentes por áreas
+    resi_planta, resi_hd, resi_diag, resi_banco, resi_cons, resi_otros = [], [], [], [], [], []
+    
     if df_rot_r is not None and not df_rot_r.empty:
         try:
             c_res = next((c for c in df_rot_r.columns if 'res' in str(c).lower() or 'nom' in str(c).lower()), df_rot_r.columns[0])
@@ -256,9 +249,22 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
                         d_fin = pd.to_datetime(r[c_f], dayfirst=True)
                         if d_ini.date() <= f_dt.date() <= d_fin.date():
                             resi = str(r[c_res]).strip().title()
-                            # Validar que no esté de saliente
                             if resi not in [s.title() for s in sal_resis] and resi.lower() not in ["nan", "none", ""]: 
-                                rot_hoy.append(f"{resi} ({str(r[c_rot]).strip()})")
+                                rot_texto = str(r[c_rot]).strip()
+                                rot_up = rot_texto.upper()
+                                # Lógica de clasificación
+                                if any(k in rot_up for k in ["PLANTA", "HOSPITALIZACION", "HOSPITALIZACIÓN"]): 
+                                    resi_planta.append(resi)
+                                elif any(k in rot_up for k in ["DIA", "DÍA", "HD", "AMBULATORIO"]): 
+                                    resi_hd.append(resi)
+                                elif any(k in rot_up for k in ["DIAG", "LAB", "MORFOLOG", "CITOMETR", "BIOLOGIA"]): 
+                                    resi_diag.append(resi)
+                                elif any(k in rot_up for k in ["BANCO", "TRANSFUS", "AFERESIS", "AFÉRESIS"]): 
+                                    resi_banco.append(resi)
+                                elif any(k in rot_up for k in ["CONS", "XHEM"]): 
+                                    resi_cons.append(resi)
+                                else: 
+                                    resi_otros.append(f"{resi} ({rot_texto})")
                 except: continue
         except: pass
 
@@ -268,14 +274,16 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         "Guardia_Resis": " / ".join(guardia_hoy_resis) if guardia_hoy_resis else "",
         "Saliente": " / ".join(salientes) if salientes else "", 
         "Saliente_Resis": " / ".join(sal_resis) if sal_resis else "", 
-        "Residentes": rot_hoy, "Ausentes": ausentes, "Agendas": {}
+        "Resi_Planta": resi_planta, "Resi_HD": resi_hd, "Resi_Diag": resi_diag, "Resi_Banco": resi_banco, "Resi_Cons": resi_cons, "Resi_Otros": resi_otros,
+        "Ausentes": ausentes, "Agendas": {}
     }
 
     es_festivo = fest_g or fest_gr or fest_v or (f_dt.weekday() >= 5)
     if es_festivo:
         res["Es_Festivo"] = True
         res["Saliente"] = ""; res["Saliente_Resis"] = ""
-        res["Ausentes"] = []; res["Residentes"] = []
+        res["Ausentes"] = []
+        res["Resi_Planta"] = []; res["Resi_HD"] = []; res["Resi_Diag"] = []; res["Resi_Banco"] = []; res["Resi_Cons"] = []; res["Resi_Otros"] = []
         for cod in ["XHEM4A", "XHEM4B", "XHEM4D", "XHEM4E", "XHEM4G", "XHEM5", "XHEM1A", "XHEM10 (Tromb.)", "XHEM11"]: res["Agendas"][cod] = ""
         res["Coag"] = []; res["Sur"] = ""; res["TAO"] = ""; res["Diag"] = ["", ""]
         res["Hem"] = ""; res["Banco"] = ["", ""]; res["IC_Ext"] = ""; res["IC_Virt"] = ""
@@ -409,15 +417,14 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         rescate_extremo(p_hoy, 2)
     elif not hd_lleno_final: p_hoy[2] = "❌ [VACÍO]"
 
-    # --- 7.5 NUEVO: BALANCEADOR OBLIGATORIO PLANTA VS HD ---
-    # Garantiza que Planta NUNCA tenga más médicos que Hospital de Día
+    # BALANCEADOR OBLIGATORIO PLANTA VS HD
     p_filled = [i for i, x in enumerate(p_hoy) if "VACÍO" not in x and x != ""]
     hd_filled = [i for i, x in enumerate(hd[:3]) if "VACÍO" not in x and x != ""]
     
     while len(p_filled) > len(hd_filled):
-        p_to_move = p_filled[-1] # Extraemos al último de planta
+        p_to_move = p_filled[-1]
         free_hd = [i for i in range(3) if i not in hd_filled]
-        if not free_hd: break # Por seguridad
+        if not free_hd: break
         
         hd_idx = free_hd[0]
         med_text = p_hoy[p_to_move]
@@ -492,9 +499,11 @@ if df_g is not None:
             with c1:
                 st.subheader("🛏️ Clínica")
                 for x in d["Planta"]: st.markdown(x)
+                if d["Resi_Planta"]: st.markdown(f"**P Resi:** {', '.join(d['Resi_Planta'])}")
                 st.divider()
                 st.write("**Hospital de Día:**")
                 for x in d["H_Dia"]: st.markdown(x)
+                if d["Resi_HD"]: st.markdown(f"**HD Res:** {', '.join(d['Resi_HD'])}")
             with c2:
                 st.subheader("💉 Coagulación")
                 if not d['Coag']: st.markdown("❌ [VACÍO]")
@@ -504,13 +513,16 @@ if df_g is not None:
                 st.subheader("🔬 Lab")
                 for x in d["Diag"]: st.markdown(x)
                 st.markdown(f"**Hem:** {d['Hem']}")
+                if d["Resi_Diag"]: st.markdown(f"**Diag Resi:** {', '.join(d['Resi_Diag'])}")
                 st.divider()
                 st.subheader("🩸 Banco")
                 for x in d["Banco"]: st.markdown(x)
+                if d["Resi_Banco"]: st.markdown(f"**Banco Resi:** {', '.join(d['Resi_Banco'])}")
             with c3:
                 st.subheader("📋 Agendas XHEM")
                 for c, m in d["Agendas"].items():
                     if "✅" in m or "❌" in m or "🔄" in m: st.markdown(f"**{c}**: {m}")
+                if d["Resi_Cons"]: st.markdown(f"**Cons Resi:** {', '.join(d['Resi_Cons'])}")
                 st.divider()
                 st.markdown(f"**TAO:** {d['TAO']}")
                 st.markdown(f"**Sur:** {d['Sur']}")
@@ -529,14 +541,14 @@ if df_g is not None:
                 else: st.markdown("No personal libre.")
                 
             st.divider()
-            st.subheader("🎓 Residentes")
-            if d["Residentes"]:
-                for r in d["Residentes"]: st.markdown(f"🔹 {r}")
-            else: st.markdown("Ninguno activo o no se han cargado datos.")
+            st.subheader("🎓 Otras Rotaciones / Externas")
+            if d["Resi_Otros"]:
+                for r in d["Resi_Otros"]: st.markdown(f"🔹 {r}")
+            else: st.markdown("Ningún residente en rotaciones externas.")
 
     elif modo == "Semanal":
         lunes = f_sel - timedelta(days=f_sel.weekday())
-        pts = ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P1", "P2", "P3", "HD1", "HD2", "HD3", "Cons 1", "Cons 2", "Cons 3", "Coagulación", "Sur", "TAO", "Diag 1", "Diag 2", "Hem", "Banco 1", "Banco 2", "Busca", "IC Hosp", "IC Virt", "IC Ext", "Pediatría", "Gestión", "Residentes"]
+        pts = ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P1", "P2", "P3", "P Resi", "HD1", "HD2", "HD3", "HD Res", "Cons 1", "Cons 2", "Cons 3", "Cons Resi", "Coagulación", "Sur", "TAO", "Diag 1", "Diag 2", "Diag Resi", "Hem", "Banco 1", "Banco 2", "Banco Resi", "Busca", "IC Hosp", "IC Virt", "IC Ext", "Pediatría", "Gestión", "Otras Rotaciones"]
         tb = {p: [] for p in pts}
         cols = []
         for i in range(5):
@@ -547,19 +559,13 @@ if df_g is not None:
             tb["Guardia_Resis"].append(d.get("Guardia_Resis", ""))
             
             if d.get("Es_Festivo"):
-                tb["Saliente"].append("")
-                tb["Sal_Resis"].append("")
-                tb["Ausentes"].append("")
-                for p in ["P1", "P2", "P3", "HD1", "HD2", "HD3", "Cons 1", "Cons 2", "Cons 3", "Coagulación", "Sur", "TAO", "Diag 1", "Diag 2", "Hem", "Banco 1", "Banco 2", "Busca", "IC Hosp", "IC Virt", "IC Ext", "Pediatría", "Gestión"]:
-                    tb[p].append("🛑 FESTIVO")
-                tb["Residentes"].append("")
+                for p in pts[2:]: tb[p].append("🛑 FESTIVO" if p not in ["Saliente", "Sal_Resis", "Ausentes", "P Resi", "HD Res", "Cons Resi", "Diag Resi", "Banco Resi", "Otras Rotaciones"] else "")
             else:
-                nrms, cg = [], []
+                nrms = []
                 for cod, m in d["Agendas"].items():
                     if "✅" in m or "🔄" in m:
                         nm = m.replace("✅ ","").replace("🔄 ","🔄 ")
-                        if cod in ["XHEM10 (Tromb.)", "XHEM11"]: cg.append(f"{cod}: {nm}")
-                        else: nrms.append(f"{cod}: {nm}")
+                        if cod not in ["XHEM10 (Tromb.)", "XHEM11"]: nrms.append(f"{cod}: {nm}")
                 while len(nrms) < 3: nrms.append("")
                 
                 def c(v): return v.replace("✅ ","").replace("🟦 ","").replace("⚠️ ","").replace("❗ ","").replace("⚖️ ","⚖️ ")
@@ -571,30 +577,35 @@ if df_g is not None:
                 tb["P1"].append(g(d["Planta"],0))
                 tb["P2"].append(g(d["Planta"],1))
                 tb["P3"].append(g(d["Planta"],2))
+                tb["P Resi"].append(" / ".join(d["Resi_Planta"]) if d["Resi_Planta"] else "")
                 tb["HD1"].append(g(d["H_Dia"],0))
                 tb["HD2"].append(g(d["H_Dia"],1))
                 tb["HD3"].append(g(d["H_Dia"],2))
+                tb["HD Res"].append(" / ".join(d["Resi_HD"]) if d["Resi_HD"] else "")
                 tb["Cons 1"].append(nrms[0])
                 tb["Cons 2"].append(nrms[1])
                 tb["Cons 3"].append(nrms[2])
+                tb["Cons Resi"].append(" / ".join(d["Resi_Cons"]) if d["Resi_Cons"] else "")
                 tb["Coagulación"].append(" / ".join(d["Coag"]) if d["Coag"] else "")
                 tb["Sur"].append(c(d["Sur"]))
                 tb["TAO"].append(c(d["TAO"]))
                 tb["Diag 1"].append(c(d["Diag"][0]))
                 tb["Diag 2"].append(c(d["Diag"][1]))
+                tb["Diag Resi"].append(" / ".join(d["Resi_Diag"]) if d["Resi_Diag"] else "")
                 tb["Hem"].append(c(d["Hem"]))
                 tb["Banco 1"].append(c(d["Banco"][0]))
                 tb["Banco 2"].append(c(d["Banco"][1]))
+                tb["Banco Resi"].append(" / ".join(d["Resi_Banco"]) if d["Resi_Banco"] else "")
                 tb["Busca"].append(d["Busca"].replace("🚨 ",""))
                 tb["IC Hosp"].append(c(d["IC_Hosp"]))
                 tb["IC Virt"].append(c(d["IC_Virt"]))
                 tb["IC Ext"].append(c(d["IC_Ext"]))
                 tb["Pediatría"].append(c(d["Ped"]))
                 tb["Gestión"].append(" / ".join(d["Gestion"]) if d["Gestion"] else "")
-                tb["Residentes"].append(" / ".join(d["Residentes"]) if d["Residentes"] else "")
+                tb["Otras Rotaciones"].append(" / ".join(d["Resi_Otros"]) if d["Resi_Otros"] else "")
             
         df = pd.DataFrame(tb, index=cols).T
-        for r in ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "Gestión", "Residentes"]:
+        for r in ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P Resi", "HD Res", "Cons Resi", "Diag Resi", "Banco Resi", "Gestión", "Otras Rotaciones"]:
             if all(x == "" for x in df.loc[r]): df = df.drop(r)
         st.table(df)
         
