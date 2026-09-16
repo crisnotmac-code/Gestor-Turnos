@@ -181,8 +181,16 @@ def extraer_diario(df, fecha_dt, is_vacaciones=False, is_resi=False):
                     d_fin = pd.to_datetime(r[c_fin], dayfirst=True)
                     if d_ini.date() <= fecha_dt.date() <= d_fin.date():
                         txt_full = " ".join([str(x).upper() for x in r.values if pd.notna(x)])
+                        matched_any = False
                         for med in plantilla:
-                            if match_medico(txt_full, med): enc.append(med)
+                            if match_medico(txt_full, med): 
+                                enc.append(med)
+                                matched_any = True
+                        # Si no es un adjunto oficial, es un residente o externo
+                        if not matched_any:
+                            n_res = str(r.iloc[1]).strip().title() + " " + str(r.iloc[0]).strip().title() if len(r) > 1 else str(r.iloc[0]).strip().title()
+                            n_res = n_res.replace("Nan", "").replace("None", "").strip()
+                            if n_res: enc.append(f"{n_res} (Resi)")
                 except Exception: continue
         else:
             col_dias_idx = -1
@@ -193,8 +201,15 @@ def extraer_diario(df, fecha_dt, is_vacaciones=False, is_resi=False):
                 nombre_celda = str(r.iloc[0]) + " " + str(r.iloc[1]) if df.shape[1] > 1 else str(r.iloc[0])
                 texto_dias = str(r.iloc[col_dias_idx])
                 if verificar_dia_en_texto(texto_dias, fecha_dt):
+                    matched_any = False
                     for med in plantilla:
-                        if match_medico(nombre_celda, med): enc.append(med)
+                        if match_medico(nombre_celda, med): 
+                            enc.append(med)
+                            matched_any = True
+                    # Si no es un adjunto oficial, es un residente o externo
+                    if not matched_any:
+                        n_res = nombre_celda.title().replace("Nan", "").replace("None", "").strip()
+                        if n_res: enc.append(f"{n_res} (Resi)")
         return list(set(enc)), False
     else:
         for _, r in df.iterrows():
@@ -218,13 +233,14 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     guardia_hoy_resis, fest_gr = extraer_diario(df_g_r, f_dt, is_vacaciones=False, is_resi=True)
     ausentes, fest_v = extraer_diario(df_v, f_dt, is_vacaciones=True)
     
-    # Motor Salientes: Suma domingo (1 día antes) + Sábado (2 días antes) si hoy es lunes
+    # Salientes Adjuntos
     salientes, _ = extraer_diario(df_g, (f_dt - timedelta(days=1)), is_vacaciones=False)
     if dia_en == "Monday": 
         sal_mon, _ = extraer_diario(df_g, (f_dt - timedelta(days=2)), is_vacaciones=False)
         salientes.extend(sal_mon)
     salientes = list(set(salientes))
 
+    # Salientes Residentes
     sal_resis, _ = extraer_diario(df_g_r, (f_dt - timedelta(days=1)), is_vacaciones=False, is_resi=True)
     if dia_en == "Monday": 
         salr_mon, _ = extraer_diario(df_g_r, (f_dt - timedelta(days=2)), is_vacaciones=False, is_resi=True)
@@ -249,7 +265,12 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
                         d_fin = pd.to_datetime(r[c_f], dayfirst=True)
                         if d_ini.date() <= f_dt.date() <= d_fin.date():
                             resi = str(r[c_res]).strip().title()
-                            if resi not in [s.title() for s in sal_resis] and resi.lower() not in ["nan", "none", ""]: 
+                            
+                            # Comprobamos si el residente está saliente o de vacaciones
+                            is_saliente = any(limpiar_texto(resi) in limpiar_texto(s) or limpiar_texto(s) in limpiar_texto(resi) for s in sal_resis)
+                            is_ausente = any(limpiar_texto(resi) in limpiar_texto(a) or limpiar_texto(a).replace(" (RESI)", "") in limpiar_texto(resi) for a in ausentes)
+
+                            if not is_saliente and not is_ausente and resi.lower() not in ["nan", "none", ""]: 
                                 rot_texto = str(r[c_rot]).strip()
                                 rot_up = rot_texto.upper()
                                 if any(k in rot_up for k in ["PLANTA", "HOSPITALIZACION", "HOSPITALIZACIÓN"]): resi_planta.append(resi)
