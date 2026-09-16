@@ -11,8 +11,8 @@ st.markdown("""<style>@media print { header, [data-testid="stSidebar"], [data-te
 # Lista Maestra
 plantilla = ["Dra. Busnego", "Dr. Moreno", "Dra. Sánchez", "Dra. Hernández", "Dra. Martín", "Dra. Alberich", "Dr. Breña", "Dra. Notario", "Dr. Figueroa", "Dra. Peris", "Dra. Montalvo", "Dr. Ríos de Paz", "Dra. Herrero", "Dra. Lorenzo", "Dra. Rodríguez Esteban", "Dra. Hernanz", "Dra. Marrero", "Dr. González", "Dr. García Roulston", "Dr. Ríos Rull", "Dr. De Ramos"]
 
-# Médicos que NUNCA deben usarse para rellenar huecos de Planta ni HD
-blindados = ["Dra. Marrero", "Dra. Hernanz", "Dra. Lorenzo", "Dr. Ríos Rull", "Dr. Ríos de Paz", "Dr. González"]
+# Médicos Blindados
+blindados = ["Dra. Marrero", "Dra. Hernanz", "Dra. Lorenzo", "Dr. Ríos Rull", "Dr. Ríos de Paz", "Dr. González", "Dr. Moreno", "Dra. Rodríguez Esteban"]
 
 meses_es_str = {"ENERO":1, "FEBRERO":2, "MARZO":3, "ABRIL":4, "MAYO":5, "JUNIO":6, "JULIO":7, "AGOSTO":8, "SEPTIEMBRE":9, "OCTUBRE":10, "NOVIEMBRE":11, "DICIEMBRE":12}
 meses_es = {1:"ENERO", 2:"FEBRERO", 3:"MARZO", 4:"ABRIL", 5:"MAYO", 6:"JUNIO", 7:"JULIO", 8:"AGOSTO", 9:"SEPTIEMBRE", 10:"OCTUBRE", 11:"NOVIEMBRE", 12:"DICIEMBRE"}
@@ -31,7 +31,7 @@ def match_medico(nombre_texto, med):
 
     if "RIOS DE PAZ" in mt: return ("PAZ" in nt) or (("RIOS" in nt or "PABLO" in nt) and "RULL" not in nt)
     if "RIOS RULL" in mt: return "RULL" in nt
-    if "GARCIA ROULSTON" in mt: return "ROULSTON" in nt or "KEVIN" in nt or "GARCIA" in mt
+    if "GARCIA ROULSTON" in mt: return "ROULSTON" in nt or "KEVIN" in nt or "GARCIA R" in nt
     if "RODRIGUEZ ESTEBAN" in mt: return "RODRIGUEZ" in nt
     if "ALBERICH" in mt: return "ALBERICH" in nt or "LABERICH" in nt
     if "DE RAMOS" in mt: return "RAMOS" in nt
@@ -218,6 +218,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     guardia_hoy_resis, fest_gr = extraer_diario(df_g_r, f_dt, is_vacaciones=False, is_resi=True)
     ausentes, fest_v = extraer_diario(df_v, f_dt, is_vacaciones=True)
     
+    # Motor Salientes: Suma domingo (1 día antes) + Sábado (2 días antes) si hoy es lunes
     salientes, _ = extraer_diario(df_g, (f_dt - timedelta(days=1)), is_vacaciones=False)
     if dia_en == "Monday": 
         sal_mon, _ = extraer_diario(df_g, (f_dt - timedelta(days=2)), is_vacaciones=False)
@@ -232,7 +233,6 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     
     asignados = list(set(ausentes + bajas + salientes))
 
-    # Clasificación de Residentes por áreas
     resi_planta, resi_hd, resi_diag, resi_banco, resi_cons, resi_otros = [], [], [], [], [], []
     
     if df_rot_r is not None and not df_rot_r.empty:
@@ -252,19 +252,12 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
                             if resi not in [s.title() for s in sal_resis] and resi.lower() not in ["nan", "none", ""]: 
                                 rot_texto = str(r[c_rot]).strip()
                                 rot_up = rot_texto.upper()
-                                # Lógica de clasificación
-                                if any(k in rot_up for k in ["PLANTA", "HOSPITALIZACION", "HOSPITALIZACIÓN"]): 
-                                    resi_planta.append(resi)
-                                elif any(k in rot_up for k in ["DIA", "DÍA", "HD", "AMBULATORIO"]): 
-                                    resi_hd.append(resi)
-                                elif any(k in rot_up for k in ["DIAG", "LAB", "MORFOLOG", "CITOMETR", "BIOLOGIA"]): 
-                                    resi_diag.append(resi)
-                                elif any(k in rot_up for k in ["BANCO", "TRANSFUS", "AFERESIS", "AFÉRESIS"]): 
-                                    resi_banco.append(resi)
-                                elif any(k in rot_up for k in ["CONS", "XHEM"]): 
-                                    resi_cons.append(resi)
-                                else: 
-                                    resi_otros.append(f"{resi} ({rot_texto})")
+                                if any(k in rot_up for k in ["PLANTA", "HOSPITALIZACION", "HOSPITALIZACIÓN"]): resi_planta.append(resi)
+                                elif any(k in rot_up for k in ["DIA", "DÍA", "HD", "AMBULATORIO"]): resi_hd.append(resi)
+                                elif any(k in rot_up for k in ["DIAG", "LAB", "MORFOLOG", "CITOMETR", "BIOLOGIA"]): resi_diag.append(resi)
+                                elif any(k in rot_up for k in ["BANCO", "TRANSFUS", "AFERESIS", "AFÉRESIS"]): resi_banco.append(resi)
+                                elif any(k in rot_up for k in ["CONS", "XHEM"]): resi_cons.append(resi)
+                                else: resi_otros.append(f"{resi} ({rot_texto})")
                 except: continue
         except: pass
 
