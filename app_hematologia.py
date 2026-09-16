@@ -386,6 +386,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     elif not hd_lleno_final: p_hoy[2] = "❌ [VACÍO]"
 
     # 8. INTERCONSULTA VIRTUAL Y EXTERNA
+    res["IC_Virt"] = "" # Valor por defecto seguro para evitar errores
     if dia_en == "Friday":
         if "Dra. Lorenzo" not in ausentes + salientes + bajas: 
             res["IC_Virt"] = "✅ Dra. Lorenzo"
