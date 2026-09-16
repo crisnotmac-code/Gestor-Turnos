@@ -19,7 +19,6 @@ def limpiar_texto(s):
     s = str(s).upper()
     for k, v in {"Á":"A", "É":"E", "Í":"I", "Ó":"O", "Ú":"U", "-":" "}.items(): 
         s = s.replace(k, v)
-    # Eliminamos comas y caracteres raros para dividir bien en palabras
     s = re.sub(r'[^\w\s]', '', s)
     return ' '.join(s.split())
 
@@ -37,8 +36,6 @@ def match_medico(nombre_texto, med):
     if "DE RAMOS" in mt: return "RAMOS" in nt
     
     apellido_principal = mt.split()[0]
-    
-    # Búsqueda EXACTA de palabra (para evitar que MARTIN coincida con MARTINEZ)
     palabras_texto = nt.split()
     return apellido_principal in palabras_texto
 
@@ -334,7 +331,6 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     if tao_titu == "Dra. Montalvo" and disp_mont: res["TAO"] = "✅ Dra. Montalvo"
     elif tao_titu == "Dr. Ríos de Paz" and disp_rios: res["TAO"] = "✅ Dr. Ríos de Paz"
     elif tao_titu == "Dra. Lorenzo" and asignar("Dra. Lorenzo"): res["TAO"] = "✅ Dra. Lorenzo"
-    elif asignar("Dra. Herrero"): res["TAO"] = "🔄 Dra. Herrero"
     else: res["TAO"] = "✅ Dr. Ríos de Paz (Simult. ACO)" if disp_rios else "❌ [ACO VACÍO]"
 
     # 4. PEDIATRÍA E IC HOSPITALARIA
@@ -450,7 +446,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         if p_hoy[i] == "": p_hoy[i] = "❌ [VACÍO]"
         if hd[i] == "": hd[i] = "❌ [VACÍO]"
 
-    # 8. INTERCONSULTA VIRTUAL Y EXTERNA 
+    # 8. INTERCONSULTA VIRTUAL Y EXTERNA
     res["IC_Virt"] = ""
     if dia_en == "Friday":
         if "Dra. Lorenzo" not in ausentes + salientes + bajas: 
@@ -465,7 +461,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         if "Dra. Hernanz" not in ausentes + salientes + bajas:
             res["IC_Virt"] = "✅ Dra. Hernanz"
             if "Dra. Hernanz" not in asignados: asignados.append("Dra. Hernanz")
-        else: res["IC_Virt"] = "❌ [VACÍO]" 
+        else: res["IC_Virt"] = "❌ [VACÍO]"
 
     if "Dr. Ríos Rull" not in ausentes + salientes + bajas:
         if "Dr. Ríos Rull" in asignados: res["IC_Ext"] = "✅ Dr. Ríos Rull (Simult.)"
