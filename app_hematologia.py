@@ -11,9 +11,6 @@ st.markdown("""<style>@media print { header, [data-testid="stSidebar"], [data-te
 # Lista Maestra
 plantilla = ["Dra. Busnego", "Dr. Moreno", "Dra. Sánchez", "Dra. Hernández", "Dra. Martín", "Dra. Alberich", "Dr. Breña", "Dra. Notario", "Dr. Figueroa", "Dra. Peris", "Dra. Montalvo", "Dr. Ríos de Paz", "Dra. Herrero", "Dra. Lorenzo", "Dra. Rodríguez Esteban", "Dra. Hernanz", "Dra. Marrero", "Dr. González", "Dr. García Roulston", "Dr. Ríos Rull", "Dr. De Ramos"]
 
-# Médicos Blindados
-blindados = ["Dra. Marrero", "Dra. Hernanz", "Dra. Lorenzo", "Dr. Ríos Rull", "Dr. Ríos de Paz", "Dr. González", "Dr. Moreno", "Dra. Rodríguez Esteban"]
-
 meses_es_str = {"ENERO":1, "FEBRERO":2, "MARZO":3, "ABRIL":4, "MAYO":5, "JUNIO":6, "JULIO":7, "AGOSTO":8, "SEPTIEMBRE":9, "OCTUBRE":10, "NOVIEMBRE":11, "DICIEMBRE":12}
 meses_es = {1:"ENERO", 2:"FEBRERO", 3:"MARZO", 4:"ABRIL", 5:"MAYO", 6:"JUNIO", 7:"JULIO", 8:"AGOSTO", 9:"SEPTIEMBRE", 10:"OCTUBRE", 11:"NOVIEMBRE", 12:"DICIEMBRE"}
 
@@ -28,18 +25,17 @@ def match_medico(nombre_texto, med):
     mt = limpiar_texto(med).replace("DR. ", "").replace("DRA. ", "").replace("DR ", "").replace("DRA ", "").strip()
     
     if "CLIMENT" in nt and "GONZALEZ" in mt: return False
-
     if "RIOS DE PAZ" in mt: return ("PAZ" in nt) or (("RIOS" in nt or "PABLO" in nt) and "RULL" not in nt)
     if "RIOS RULL" in mt: return "RULL" in nt
-    if "GARCIA ROULSTON" in mt: return "ROULSTON" in nt or "KEVIN" in nt or "GARCIA R" in nt
-    if "RODRIGUEZ ESTEBAN" in mt: return "RODRIGUEZ" in nt
+    # Eliminado el falso positivo de García. Ahora exige "Roulston" o "Kevin" obligatoriamente.
+    if "GARCIA ROULSTON" in mt: return "ROULSTON" in nt or "KEVIN" in nt
+    if "RODRIGUEZ ESTEBAN" in mt: return "RODRIGUEZ" in nt or "CARMEN" in nt
     if "ALBERICH" in mt: return "ALBERICH" in nt or "LABERICH" in nt
     if "DE RAMOS" in mt: return "RAMOS" in nt
     
-    words = [w for w in mt.split() if len(w) > 3]
-    for w in words:
-        if w in nt: return True
-    return False
+    # Búsqueda estricta por primer apellido para evitar falsos positivos
+    apellido_principal = mt.split()[0]
+    return apellido_principal in nt
 
 def parse_vacaciones(texto, mes_por_defecto):
     texto = limpiar_texto(str(texto)).replace(' Y ', ',')
@@ -54,8 +50,7 @@ def parse_vacaciones(texto, mes_por_defecto):
                 break
         if current_month is not None: break
         
-    if current_month is None:
-        current_month = mes_por_defecto
+    if current_month is None: current_month = mes_por_defecto
 
     for bloque in reversed(bloques):
         if "AL" in bloque or "-" in bloque:
@@ -77,10 +72,8 @@ def parse_vacaciones(texto, mes_por_defecto):
                 
                 if nums1 and nums2:
                     ini, fin = nums1[-1], nums2[0]
-                    if m1 == m2 and m2 is not None and ini > fin:
-                        m1 = m2 - 1 if m2 > 1 else 12
-                    if m1 is not None and m2 is not None:
-                        parsed_ranges.append((ini, m1, fin, m2))
+                    if m1 == m2 and m2 is not None and ini > fin: m1 = m2 - 1 if m2 > 1 else 12
+                    if m1 is not None and m2 is not None: parsed_ranges.append((ini, m1, fin, m2))
         else:
             m = current_month
             for m_str, m_num in meses_es_str.items():
@@ -89,8 +82,7 @@ def parse_vacaciones(texto, mes_por_defecto):
             
             nums = [int(s) for s in re.findall(r'\d+', bloque)]
             for n in nums:
-                if m is not None:
-                    parsed_ranges.append((n, m, n, m))
+                if m is not None: parsed_ranges.append((n, m, n, m))
     return parsed_ranges
 
 def esta_en_rango(dia, mes, rangos):
@@ -122,13 +114,10 @@ def is_matching_date(val, target_date):
 def cargar_todo(archivo):
     try:
         if isinstance(archivo, str):
-            if not os.path.exists(archivo):
-                return None, None, None, None
+            if not os.path.exists(archivo): return None, None, None, None
             f = archivo
-        elif hasattr(archivo, 'getvalue'):
-            f = io.BytesIO(archivo.getvalue())
-        else:
-            f = archivo
+        elif hasattr(archivo, 'getvalue'): f = io.BytesIO(archivo.getvalue())
+        else: f = archivo
             
         xl = pd.ExcelFile(f)
         def get_sheet(keywords, header_mode=0):
@@ -186,7 +175,6 @@ def extraer_diario(df, fecha_dt, is_vacaciones=False, is_resi=False):
                             if match_medico(txt_full, med): 
                                 enc.append(med)
                                 matched_any = True
-                        # Si no es un adjunto oficial, es un residente o externo
                         if not matched_any:
                             n_res = str(r.iloc[1]).strip().title() + " " + str(r.iloc[0]).strip().title() if len(r) > 1 else str(r.iloc[0]).strip().title()
                             n_res = n_res.replace("Nan", "").replace("None", "").strip()
@@ -206,7 +194,6 @@ def extraer_diario(df, fecha_dt, is_vacaciones=False, is_resi=False):
                         if match_medico(nombre_celda, med): 
                             enc.append(med)
                             matched_any = True
-                    # Si no es un adjunto oficial, es un residente o externo
                     if not matched_any:
                         n_res = nombre_celda.title().replace("Nan", "").replace("None", "").strip()
                         if n_res: enc.append(f"{n_res} (Resi)")
@@ -233,14 +220,13 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     guardia_hoy_resis, fest_gr = extraer_diario(df_g_r, f_dt, is_vacaciones=False, is_resi=True)
     ausentes, fest_v = extraer_diario(df_v, f_dt, is_vacaciones=True)
     
-    # Salientes Adjuntos
+    # Salientes (Asegurado: Lunes suma domingo + sábado)
     salientes, _ = extraer_diario(df_g, (f_dt - timedelta(days=1)), is_vacaciones=False)
     if dia_en == "Monday": 
         sal_mon, _ = extraer_diario(df_g, (f_dt - timedelta(days=2)), is_vacaciones=False)
         salientes.extend(sal_mon)
     salientes = list(set(salientes))
 
-    # Salientes Residentes
     sal_resis, _ = extraer_diario(df_g_r, (f_dt - timedelta(days=1)), is_vacaciones=False, is_resi=True)
     if dia_en == "Monday": 
         salr_mon, _ = extraer_diario(df_g_r, (f_dt - timedelta(days=2)), is_vacaciones=False, is_resi=True)
@@ -265,8 +251,6 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
                         d_fin = pd.to_datetime(r[c_f], dayfirst=True)
                         if d_ini.date() <= f_dt.date() <= d_fin.date():
                             resi = str(r[c_res]).strip().title()
-                            
-                            # Comprobamos si el residente está saliente o de vacaciones
                             is_saliente = any(limpiar_texto(resi) in limpiar_texto(s) or limpiar_texto(s) in limpiar_texto(resi) for s in sal_resis)
                             is_ausente = any(limpiar_texto(resi) in limpiar_texto(a) or limpiar_texto(a).replace(" (RESI)", "") in limpiar_texto(resi) for a in ausentes)
 
@@ -360,97 +344,82 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     res["Hem"] = "✅ Dra. Alberich" if asignar("Dra. Alberich") else "❌ [VACÍO]"
     res["Banco"] = ["✅ Dr. Figueroa" if asignar("Dr. Figueroa") else "❌ [VACÍO]", "✅ Dra. Peris" if asignar("Dra. Peris") else "❌ [VACÍO]"]
 
-    # 6. LA CASCADA ESTRUCTURAL DE PLANTA Y HD
+    # 6. ASIGNACIÓN ESTRICTA DE PLANTA Y HD
     p_hoy = ["", "", ""]
     hd = ["", "", ""]
     
-    p_titu = ["Dra. Busnego", "Dr. Moreno", "Dra. Rodríguez Esteban"]
-    hd_titu = [
-        {"Monday": "Dra. Sánchez", "Tuesday": "Dr. Ríos Rull", "Wednesday": "Dra. Sánchez", "Thursday": "Dra. Martín", "Friday": "Dra. Sánchez"}.get(dia_en),
-        {"Monday": "Dra. Hernández", "Tuesday": "Dra. Hernández", "Thursday": "Dra. Hernández", "Friday": "Dra. Hernández"}.get(dia_en),
-        None
-    ]
-    p_sust = ["Dr. García Roulston", "Dr. De Ramos", "Dra. Herrero", "Dra. Martín"]
-    hd_sust = ["Dra. Martín", "Dr. García Roulston", "Dr. De Ramos", "Dra. Herrero", "Dra. Rodríguez Esteban"]
-
-    def is_gest(m): return (dia_en=="Tuesday" and m=="Dra. Sánchez") or (dia_en=="Wednesday" and m=="Dra. Hernández")
-    active_titulares = [t for t in [p_titu[0], p_titu[1], hd_titu[0], hd_titu[1], hd_titu[2], p_titu[2]] if t]
-
-    def fill_position(titular, sust_list, is_hd=False):
-        if titular and titular not in asignados:
-            asignados.append(titular); return f"✅ {titular}"
-        for s in sust_list:
-            if s not in blindados and s not in asignados:
-                asignados.append(s); return f"🔄 {s}"
-        hd_gest = {"Tuesday": "Dra. Sánchez", "Wednesday": "Dra. Hernández"}.get(dia_en)
-        if is_hd and hd_gest and hd_gest not in asignados and hd_gest not in blindados:
-            asignados.append(hd_gest); return f"⚠️ {hd_gest} (Gestión rota para HD)"
-        for m in plantilla:
-            if m not in asignados and m not in blindados and m not in active_titulares and not is_gest(m):
-                asignados.append(m); return f"🟦 {m}" if is_hd else f"🔄 {m}"
-        for m in plantilla:
-            if m not in asignados and m not in blindados and m not in active_titulares:
-                asignados.append(m); return f"⚠️ {m} (Gestión)"
-        for m in plantilla:
-            if m not in asignados and m not in blindados:
-                asignados.append(m); return f"⚠️ {m} (Reasignado)"
-        return "❌ [VACÍO]"
-
-    p_hoy[0] = fill_position(p_titu[0], p_sust, False)
-    p_hoy[1] = fill_position(p_titu[1], p_sust, False)
+    # 6.1 Asignar Titulares a HD (Sánchez y Hernández jamás pisan Planta)
+    hd1_tit = {"Monday": "Dra. Sánchez", "Tuesday": "Dr. Ríos Rull", "Wednesday": "Dra. Sánchez", "Thursday": "Dra. Martín", "Friday": "Dra. Sánchez"}.get(dia_en)
+    hd2_tit = {"Monday": "Dra. Hernández", "Tuesday": "Dra. Hernández", "Thursday": "Dra. Hernández", "Friday": "Dra. Hernández"}.get(dia_en)
     
-    if dia_en in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]:
-        hd[0] = fill_position(hd_titu[0], hd_sust, True)
-        hd[1] = fill_position(hd_titu[1], hd_sust, True)
-        hd[2] = fill_position(hd_titu[2], hd_sust, True)
-    else: hd[0] = hd[1] = hd[2] = "❌ [VACÍO]"
+    if hd1_tit and asignar(hd1_tit): hd[0] = f"✅ {hd1_tit}"
+    if hd2_tit and asignar(hd2_tit): hd[1] = f"✅ {hd2_tit}"
 
-    hd_lleno = all("VACÍO" not in h for h in hd[:3])
-    if hd_lleno: p_hoy[2] = fill_position(p_titu[2], p_sust, False)
-    else: p_hoy[2] = "❌ [VACÍO]"
+    # 6.2 Asignar Titulares a Planta (Moreno y Rodríguez Esteban son intocables)
+    if asignar("Dra. Busnego"): p_hoy[0] = "✅ Dra. Busnego"
+    if asignar("Dr. Moreno"): p_hoy[1] = "✅ Dr. Moreno"
+    if asignar("Dra. Rodríguez Esteban"): p_hoy[2] = "✅ Dra. Rodríguez Esteban"
 
-    # 7. RESCATES DE ÚLTIMA HORA
-    def rescate_extremo(arr, idx, is_hd=False):
-        if arr[idx] == "" or "VACÍO" not in arr[idx]: return
-        ok = False
-        s_list = hd_sust + plantilla if is_hd else plantilla
-        for m in s_list:
-            if m not in asignados and m not in blindados and not is_gest(m):
-                asignados.append(m); arr[idx] = f"🟦 {m}" if is_hd else f"🔄 {m}"; ok = True; break
-        if not ok:
-            for m in plantilla:
-                if m not in asignados and m not in blindados:
-                    asignados.append(m); arr[idx] = f"⚠️ {m} (Gestión)"; break
+    # 6.3 Reparto de Sustitutos permitidos
+    sust_disp = [m for m in ["Dra. Martín", "Dr. García Roulston", "Dr. De Ramos", "Dra. Herrero"] if m not in asignados and m in plantilla]
 
-    rescate_extremo(p_hoy, 0); rescate_extremo(p_hoy, 1)
-    for i in range(3): rescate_extremo(hd, i, True)
-    
-    hd_lleno_final = all("VACÍO" not in h for h in hd[:3])
-    if hd_lleno_final and "VACÍO" in p_hoy[2]:
-        p_hoy[2] = fill_position(p_titu[2], p_sust, False)
-        rescate_extremo(p_hoy, 2)
-    elif not hd_lleno_final: p_hoy[2] = "❌ [VACÍO]"
+    for s in sust_disp:
+        c_p = sum(1 for x in p_hoy if x)
+        c_h = sum(1 for x in hd if x)
+        # HD tiene prioridad si está por debajo de Planta O si tiene huecos y Planta ya tiene 2
+        if c_h < c_p and c_h < 3:
+            idx = hd.index("")
+            hd[idx] = f"🔄 {s}"; asignar(s)
+        elif p_hoy[0] == "":
+            p_hoy[0] = f"🔄 {s}"; asignar(s)
+        elif p_hoy[1] == "":
+            p_hoy[1] = f"🔄 {s}"; asignar(s)
+        elif "" in hd:
+            idx = hd.index("")
+            hd[idx] = f"🔄 {s}"; asignar(s)
+        elif p_hoy[2] == "":
+            p_hoy[2] = f"🔄 {s}"; asignar(s)
 
-    # BALANCEADOR OBLIGATORIO PLANTA VS HD
-    p_filled = [i for i, x in enumerate(p_hoy) if "VACÍO" not in x and x != ""]
-    hd_filled = [i for i, x in enumerate(hd[:3]) if "VACÍO" not in x and x != ""]
-    
-    while len(p_filled) > len(hd_filled):
-        p_to_move = p_filled[-1]
-        free_hd = [i for i in range(3) if i not in hd_filled]
-        if not free_hd: break
+    # 6.4 Castigo de Gestión para Titulares de HD
+    if sum(1 for x in hd if x) < 3:
+        if dia_en == "Tuesday" and "Dra. Sánchez" not in asignados:
+            idx = hd.index("")
+            hd[idx] = "⚠️ Dra. Sánchez (Gestión rota)"; asignar("Dra. Sánchez")
+        elif dia_en == "Wednesday" and "Dra. Hernández" not in asignados:
+            idx = hd.index("")
+            hd[idx] = "⚠️ Dra. Hernández (Gestión rota)"; asignar("Dra. Hernández")
+
+    # 6.5 Forzar regla absoluta: Planta <= HD
+    c_p = sum(1 for x in p_hoy if x)
+    c_h = sum(1 for x in hd if x)
+
+    while c_p > c_h:
+        # Se cierran camas en este orden: P3 -> P1 -> P2
+        if p_hoy[2] != "": idx_to_empty = 2
+        elif p_hoy[0] != "": idx_to_empty = 0
+        elif p_hoy[1] != "": idx_to_empty = 1
+        else: break
         
-        hd_idx = free_hd[0]
-        med_text = p_hoy[p_to_move]
-        med_name = med_text.replace("✅", "").replace("🔄", "").replace("🟦", "").replace("⚠️", "").split("(")[0].strip()
+        med = p_hoy[idx_to_empty].replace("✅ ", "").replace("🔄 ", "")
+        p_hoy[idx_to_empty] = ""
         
-        hd[hd_idx] = f"⚖️ {med_name} (Balanceado)"
-        p_hoy[p_to_move] = "❌ [VACÍO]"
+        # Si NO está blindado en planta, se balancea hacia HD
+        if med not in ["Dr. Moreno", "Dra. Rodríguez Esteban"]:
+            idx_hd = hd.index("")
+            hd[idx_hd] = f"⚖️ {med} (Balanceado)"
+            c_h += 1
+        else:
+            # Si es Moreno o R. Esteban, se cierra su cama y queda libre en Gestión
+            asignados.remove(med)
         
-        p_filled = [i for i, x in enumerate(p_hoy) if "VACÍO" not in x and x != ""]
-        hd_filled = [i for i, x in enumerate(hd[:3]) if "VACÍO" not in x and x != ""]
+        c_p -= 1
 
-    # 8. INTERCONSULTA VIRTUAL Y EXTERNA
+    # 6.6 Formatear vacíos visualmente
+    for i in range(3):
+        if p_hoy[i] == "": p_hoy[i] = "❌ [VACÍO]"
+        if hd[i] == "": hd[i] = "❌ [VACÍO]"
+
+    # 7. INTERCONSULTA VIRTUAL Y EXTERNA
     res["IC_Virt"] = ""
     if dia_en == "Friday":
         if "Dra. Lorenzo" not in ausentes + salientes + bajas: 
@@ -468,7 +437,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         else: res["IC_Ext"] = "✅ Dr. Ríos Rull"; asignados.append("Dr. Ríos Rull")
     else: res["IC_Ext"] = "❌ [VACÍO]"
 
-    # 9. BUSCA DEFINITIVO 
+    # 8. BUSCA DEFINITIVO 
     busca_prioridad = ["Dra. Herrero", "Dra. Martín", "Dr. De Ramos", "Dr. García Roulston", "Dra. Rodríguez Esteban"]
     med_busca_final = next((m for m in busca_prioridad if m not in asignados and m in plantilla), None)
     
