@@ -335,9 +335,11 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
 
     # 4. PEDIATRÍA E IC HOSPITALARIA
     ic_hosp = []
+    
+    # Jerarquía Pediatría: 1º González, 2º Peris (Simult), 3º De Ramos (Simult)
     if asignar("Dr. González"): res["Ped"] = "✅ Dr. González"
-    elif asignar("Dr. De Ramos"): res["Ped"] = "🔄 Dr. De Ramos"
     elif "Dra. Peris" not in ausentes + salientes + bajas: res["Ped"] = "✅ Dra. Peris (Simult. Banco)"
+    elif "Dr. De Ramos" not in ausentes + salientes + bajas: res["Ped"] = "🔄 Dr. De Ramos (Simult.)"
     else: res["Ped"] = "❗ [VACÍO]"
 
     if "Dr. González" not in ausentes + salientes + bajas: ic_hosp.append("✅ Dr. González")
@@ -359,11 +361,14 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         {"Monday": "Dra. Hernández", "Tuesday": "Dra. Hernández", "Thursday": "Dra. Hernández", "Friday": "Dra. Hernández"}.get(dia_en),
         None
     ]
-    p_sust = ["Dr. García Roulston", "Dr. De Ramos", "Dra. Herrero", "Dra. Martín"]
-    hd_sust = ["Dra. Martín", "Dr. García Roulston", "Dr. De Ramos", "Dra. Herrero"] 
+    
+    # Herrero exclusiva Planta. Roulston exclusivo HD.
+    p_sust = ["Dr. De Ramos", "Dra. Herrero", "Dra. Martín"]
+    hd_sust = ["Dra. Martín", "Dr. García Roulston", "Dr. De Ramos"] 
 
-    no_pisan_planta = ["Dra. Sánchez", "Dra. Hernández", "Dra. Lorenzo", "Dr. Ríos Rull", "Dr. Ríos de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz"]
-    no_pisan_hd = ["Dr. Moreno", "Dra. Rodríguez Esteban", "Dra. Lorenzo", "Dr. Ríos Rull", "Dr. Ríos de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz"]
+    # Blindajes
+    no_pisan_planta = ["Dra. Sánchez", "Dra. Hernández", "Dra. Lorenzo", "Dr. Ríos Rull", "Dr. Ríos de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dr. García Roulston"]
+    no_pisan_hd = ["Dr. Moreno", "Dra. Rodríguez Esteban", "Dra. Lorenzo", "Dr. Ríos Rull", "Dr. Ríos de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dra. Herrero"]
     no_pisan_p1_p2 = ["Dra. Rodríguez Esteban"]
 
     def is_gest(m): return (dia_en=="Tuesday" and m=="Dra. Sánchez") or (dia_en=="Wednesday" and m=="Dra. Hernández")
@@ -423,7 +428,8 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         for idx in [2, 0, 1]:
             if p_hoy[idx] != "":
                 med_name = p_hoy[idx].replace("✅", "").replace("🔄", "").replace("🟦", "").replace("⚠️", "").split("(")[0].strip()
-                if med_name not in ["Dr. Moreno", "Dra. Rodríguez Esteban", "Dra. Busnego"]:
+                # Bloqueo estricto del balanceador
+                if med_name not in ["Dr. Moreno", "Dra. Rodríguez Esteban", "Dra. Busnego", "Dra. Herrero"]:
                     movable_idx = idx
                     break
         
