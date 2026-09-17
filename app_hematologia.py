@@ -30,7 +30,7 @@ def formatear_resi(n_orig):
     if "DOS SANTOS" in n: return "Dra. R. Dos Santos"
     if "RUBIO" in n: return "Dra. R. Rubio"
     if "MARCAL" in n: return "Dra. Marcal"
-    if "MARTINEZ" in n: return "Dra. Martínez"
+    if "MARTINEZ" in n: return "Dra. Martínez Carrasco" # Actualización de nomenclatura
     if "QUINTERO" in n: return "Dr. Quintero"
     if "CRESPO" in n: return "Dra. Crespo"
     if "OLIVA" in n: return "Dra. Oliva"
@@ -448,9 +448,6 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         hd_lleno = all(h != "" for h in hd[:3])
         if hd_lleno: 
             p_hoy[2] = fill_spot('P', 2, p_sust)
-        elif "Dra. Herrero" not in asignados:
-            asignados.append("Dra. Herrero")
-            p_hoy[2] = "🔄 Dra. Herrero"
 
     p_filled = [i for i, x in enumerate(p_hoy) if x != ""]
     hd_filled = [i for i, x in enumerate(hd[:3]) if x != ""]
@@ -474,10 +471,20 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         med_name = med_text.replace("✅", "").replace("🔄", "").replace("🟦", "").replace("⚠️", "").split("(")[0].strip()
         
         hd[hd_idx] = f"⚖️ {med_name} (Balanceado)"
-        p_hoy[movable_idx] = "---" # Balanceado, por tanto visualmente no es un error (no pondrá X VACIO)
+        p_hoy[movable_idx] = "---" 
         
         p_filled = [i for i, x in enumerate(p_hoy) if x != "" and x != "---"]
         hd_filled = [i for i, x in enumerate(hd[:3]) if x != ""]
+
+    # 6.5 RESCATE DE LA DRA. HERRERO EN PLANTA
+    # Si después de todo el balanceo hay una cama cerrada ("---") o un hueco vacío ("")
+    # y la Dra. Herrero sigue libre, se la mete en Planta automáticamente.
+    if "Dra. Herrero" not in asignados:
+        for idx in [2, 0, 1]:
+            if p_hoy[idx] in ["", "---"]:
+                p_hoy[idx] = "🔄 Dra. Herrero"
+                asignados.append("Dra. Herrero")
+                break
 
     for i in range(3):
         if p_hoy[i] == "": p_hoy[i] = "❌ [VACÍO]"
@@ -506,9 +513,8 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     else: res["IC_Ext"] = "❌ [VACÍO]"
 
     res["H_Dia"] = [f"HD{i+1}: {h}" for i, h in enumerate(hd) if h != ""]
-    res["Planta"] = [f"P{i+1}: {p}" for i, p in enumerate(p_hoy) if p != "---"] # Oculta las camas cerradas por balanceo
+    res["Planta"] = [f"P{i+1}: {p}" for i, p in enumerate(p_hoy) if p != "---"]
     
-    # Rellenar con strings vacíos si se cerraron camas para mantener el diseño visual estable
     while len(res["Planta"]) < 3:
         res["Planta"].append("---")
         
