@@ -46,7 +46,6 @@ def match_medico(nombre_texto, med):
     nt = limpiar_texto(nombre_texto)
     mt = limpiar_texto(med).replace("DR. ", "").replace("DRA. ", "").replace("DR ", "").replace("DRA ", "").strip()
     
-    # Prevención crucial para que la residente Climent no cuente como Dr. González
     if "CLIMENT" in nt and "GONZALEZ" in mt: return False
     
     if med == "Dr. R. de Paz": return ("PAZ" in nt) or (("RIOS" in nt or "PABLO" in nt) and "RULL" not in nt)
@@ -352,7 +351,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
 
     # 3. TAO (ACO)
     tao_assigned = []
-    if dia_en in ["Monday", "Thursday"] and disp_mont:
+    if dia_en in ["Monday"] and disp_mont:
         tao_assigned.append("✅ Dra. Montalvo")
     if dia_en in ["Tuesday", "Thursday"] and "Dra. Lorenzo" not in asignados:
         asignados.append("Dra. Lorenzo")
@@ -388,9 +387,9 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     
     p_titu = ["Dra. Busnego", "Dr. Moreno", "Dra. R. Esteban"]
     hd_titu = [
-        {"Monday": "Dra. Sánchez", "Tuesday": "Dr. R. Rull", "Wednesday": "Dra. Sánchez", "Thursday": "Dra. Martín", "Friday": "Dra. Sánchez"}.get(dia_en),
+        {"Monday": "Dra. Sánchez", "Tuesday": "Dr. R. Rull", "Wednesday": "Dra. Sánchez", "Friday": "Dra. Sánchez"}.get(dia_en),
         {"Monday": "Dra. Hernández", "Tuesday": "Dra. Hernández", "Thursday": "Dra. Hernández", "Friday": "Dra. Hernández"}.get(dia_en),
-        None
+        {"Thursday": "Dra. Martín"}.get(dia_en)
     ]
     
     p_sust = ["Dr. De Ramos", "Dra. Herrero"]
@@ -402,7 +401,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
 
     def is_gest(m): return (dia_en=="Tuesday" and m=="Dra. Sánchez") or (dia_en=="Wednesday" and m=="Dra. Hernández")
 
-    for i in range(2):
+    for i in range(3):
         if hd_titu[i] and asignar(hd_titu[i]): hd[i] = f"✅ {hd_titu[i]}"
     for i in range(3):
         if p_titu[i] and asignar(p_titu[i]): p_hoy[i] = f"✅ {p_titu[i]}"
@@ -413,7 +412,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
                 if spot_type == 'P' and s in no_pisan_planta: continue
                 if spot_type == 'HD' and s in no_pisan_hd: continue
                 if spot_type == 'P' and spot_idx in [0, 1] and s in no_pisan_p1_p2: continue
-                asignados.append(s); return f"✅ {s}"
+                asignados.append(s); return f"🔄 {s}"
         
         if spot_type == 'HD':
             hd_gest = {"Tuesday": "Dra. Sánchez", "Wednesday": "Dra. Hernández"}.get(dia_en)
@@ -437,6 +436,14 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
                 
         return ""
 
+    if dia_en in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]:
+        if hd[2] == "" and "Dra. Martín" not in asignados:
+            asignados.append("Dra. Martín")
+            hd[2] = "🔄 Dra. Martín"
+        if hd[1] == "" and "Dr. G. Roulston" not in asignados:
+            asignados.append("Dr. G. Roulston")
+            hd[1] = "🔄 Dr. G. Roulston"
+
     if p_hoy[0] == "": p_hoy[0] = fill_spot('P', 0, p_sust)
     if p_hoy[1] == "": p_hoy[1] = fill_spot('P', 1, p_sust)
     
@@ -457,7 +464,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         movable_idx = None
         for idx in [2, 0, 1]:
             if p_hoy[idx] != "":
-                med_name = p_hoy[idx].replace("✅", "").replace("🟦", "").replace("⚠️", "").split("(")[0].strip()
+                med_name = p_hoy[idx].replace("✅", "").replace("🔄", "").replace("🟦", "").replace("⚠️", "").split("(")[0].strip()
                 if med_name not in ["Dr. Moreno", "Dra. R. Esteban", "Dra. Busnego", "Dra. Herrero"]:
                     movable_idx = idx
                     break
@@ -469,7 +476,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         
         hd_idx = free_hd[0]
         med_text = p_hoy[movable_idx]
-        med_name = med_text.replace("✅", "").replace("🟦", "").replace("⚠️", "").split("(")[0].strip()
+        med_name = med_text.replace("✅", "").replace("🔄", "").replace("🟦", "").replace("⚠️", "").split("(")[0].strip()
         
         hd[hd_idx] = f"✅ {med_name}"
         p_hoy[movable_idx] = "---" 
