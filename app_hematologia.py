@@ -349,7 +349,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         elif asignar(m): res["Agendas"][c] = f"✅ {m}"
         else: res["Agendas"][c] = f"❌ {m} (No disp.)"
 
-    # 3. TAO (ACO)
+    # 3. TAO (ACO) - Exclusivo Dra. Lorenzo los jueves
     tao_assigned = []
     if dia_en in ["Monday"] and disp_mont:
         tao_assigned.append("✅ Dra. Montalvo")
@@ -395,6 +395,9 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     p_sust = ["Dr. De Ramos", "Dra. Herrero"]
     hd_sust = ["Dra. Martín", "Dr. G. Roulston", "Dr. De Ramos"] 
 
+    # Estos son los habituales del HD. Se usa para poner siempre ✅ y evitar el icono 🔄.
+    habituales_hd = ["Dra. Sánchez", "Dra. Hernández", "Dr. De Ramos", "Dra. Martín", "Dr. R. Rull", "Dr. G. Roulston"]
+
     no_pisan_planta = ["Dra. Sánchez", "Dra. Hernández", "Dra. Lorenzo", "Dr. R. Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dr. G. Roulston", "Dra. Martín"]
     no_pisan_hd = ["Dr. Moreno", "Dra. R. Esteban", "Dra. Lorenzo", "Dr. R. Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dra. Herrero"]
     no_pisan_p1_p2 = ["Dra. R. Esteban"]
@@ -412,7 +415,10 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
                 if spot_type == 'P' and s in no_pisan_planta: continue
                 if spot_type == 'HD' and s in no_pisan_hd: continue
                 if spot_type == 'P' and spot_idx in [0, 1] and s in no_pisan_p1_p2: continue
-                asignados.append(s); return f"🔄 {s}"
+                asignados.append(s)
+                if spot_type == 'HD' and s in habituales_hd:
+                    return f"✅ {s}"
+                return f"🔄 {s}"
         
         if spot_type == 'HD':
             hd_gest = {"Tuesday": "Dra. Sánchez", "Wednesday": "Dra. Hernández"}.get(dia_en)
@@ -425,24 +431,30 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
                 if spot_type == 'HD' and m in no_pisan_hd: continue
                 if spot_type == 'P' and spot_idx in [0, 1] and m in no_pisan_p1_p2: continue
                 if is_gest(m): continue
-                asignados.append(m); return f"🟦 {m}"
+                asignados.append(m)
+                if spot_type == 'HD' and m in habituales_hd:
+                    return f"✅ {m}"
+                return f"🟦 {m}"
                 
         for m in plantilla:
             if m not in asignados:
                 if spot_type == 'P' and m in no_pisan_planta: continue
                 if spot_type == 'HD' and m in no_pisan_hd: continue
                 if spot_type == 'P' and spot_idx in [0, 1] and m in no_pisan_p1_p2: continue
-                asignados.append(m); return f"⚠️ {m} (Gestión)"
+                asignados.append(m)
+                if spot_type == 'HD' and m in habituales_hd:
+                    return f"✅ {m}"
+                return f"⚠️ {m} (Gestión)"
                 
         return ""
 
     if dia_en in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]:
         if hd[2] == "" and "Dra. Martín" not in asignados:
             asignados.append("Dra. Martín")
-            hd[2] = "🔄 Dra. Martín"
+            hd[2] = "✅ Dra. Martín" # Prioridad absoluta HD3
         if hd[1] == "" and "Dr. G. Roulston" not in asignados:
             asignados.append("Dr. G. Roulston")
-            hd[1] = "🔄 Dr. G. Roulston"
+            hd[1] = "✅ Dr. G. Roulston" # Prioridad absoluta HD2
 
     if p_hoy[0] == "": p_hoy[0] = fill_spot('P', 0, p_sust)
     if p_hoy[1] == "": p_hoy[1] = fill_spot('P', 1, p_sust)
@@ -478,6 +490,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         med_text = p_hoy[movable_idx]
         med_name = med_text.replace("✅", "").replace("🔄", "").replace("🟦", "").replace("⚠️", "").split("(")[0].strip()
         
+        # Como va al HD y es De Ramos, le ponemos check normal
         hd[hd_idx] = f"✅ {med_name}"
         p_hoy[movable_idx] = "---" 
         
