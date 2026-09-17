@@ -399,8 +399,6 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
 
     no_pisan_planta = ["Dra. Sánchez", "Dra. Hernández", "Dra. Lorenzo", "Dr. R. Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dr. G. Roulston", "Dra. Martín"]
     no_pisan_hd = ["Dr. Moreno", "Dra. R. Esteban", "Dra. Lorenzo", "Dr. R. Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dra. Herrero"]
-    
-    # Blindaje Absoluto de Camas para Titulares
     no_pisan_p1_p2 = ["Dra. R. Esteban"]
     no_pisan_p1_p3 = ["Dr. Moreno"]
 
@@ -420,7 +418,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
                 if spot_type == 'P' and spot_idx in [0, 2] and s in no_pisan_p1_p3: continue
                 asignados.append(s)
                 if spot_type == 'HD' and s in habituales_hd: return f"✅ {s}"
-                if spot_type == 'P' and s == "Dra. Herrero": return f"🔄 {s}" # Herrero siempre 🔄 en Planta
+                if spot_type == 'P' and s == "Dra. Herrero": return f"🔄 {s}" 
                 return f"🔄 {s}"
         
         if spot_type == 'HD':
@@ -501,7 +499,6 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         p_filled = [i for i, x in enumerate(p_hoy) if x != "" and x != "---"]
         hd_filled = [i for i, x in enumerate(hd[:3]) if x != ""]
 
-    # RESCATE FINAL DRA. HERRERO: Si queda libre y hay hueco, entra siempre con 🔄
     if "Dra. Herrero" not in asignados:
         for idx in [2, 0, 1]:
             if p_hoy[idx] in ["", "---"]:
@@ -680,20 +677,57 @@ if df_g is not None:
         df = pd.DataFrame(tb, index=cols).T
         for r in ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P Resi", "HD Res", "Cons Resi", "Diag Resi", "Banco Resi", "Gestión", "Otras Rotaciones"]:
             if all(x == "" for x in df.loc[r]): df = df.drop(r)
-        st.table(df)
         
         b = io.BytesIO()
         with pd.ExcelWriter(b, engine='xlsxwriter') as w: 
             df.to_excel(w, sheet_name='Semana')
             wb = w.book
             ws = w.sheets['Semana']
-            f_celda = wb.add_format({'text_wrap': True, 'valign': 'vcenter', 'align': 'center', 'border': 1})
-            f_cabecera = wb.add_format({'bold': True, 'bg_color': '#D9E1F2', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
-            f_indice = wb.add_format({'bold': True, 'bg_color': '#F2F2F2', 'border': 1, 'align': 'left', 'valign': 'vcenter'})
-            ws.set_column(0, 0, 20, f_indice)
-            ws.set_column(1, len(df.columns), 28, f_celda)
+            
+            # --- COLORES POR BLOQUES ---
+            bg_planta = '#E2EFDA' # Verde
+            bg_hd = '#DDEBF7'     # Azul
+            bg_cons = '#FCE4D6'   # Naranja
+            bg_tao = '#FFF2CC'    # Amarillo
+            bg_lab = '#E4DFEC'    # Morado
+            bg_ic = '#F2DCDB'     # Rojo claro
+            bg_def = '#FFFFFF'    # Blanco
+            bg_idx = '#F2F2F2'    # Gris claro
+            
+            def get_row_color(r):
+                if r in ['P1', 'P2', 'P3', 'P Resi']: return bg_planta
+                if str(r).startswith('HD'): return bg_hd
+                if str(r).startswith('Cons'): return bg_cons
+                if r in ['Coagulación', 'Sur', 'TAO']: return bg_tao
+                if str(r).startswith('Diag') or str(r).startswith('Hem') or str(r).startswith('Banco'): return bg_lab
+                if str(r).startswith('IC ') or r == 'Pediatría': return bg_ic
+                return bg_def
+
+            fmt_cabecera = wb.add_format({'bold': True, 'bg_color': '#D9E1F2', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
+            fmt_cells = {}
+            fmt_index = {}
+            
+            for r_idx, row_name in enumerate(df.index):
+                c_bg = get_row_color(row_name)
+                i_bg = bg_idx if c_bg == bg_def else c_bg
+                
+                if c_bg not in fmt_cells:
+                    fmt_cells[c_bg] = wb.add_format({'text_wrap': True, 'valign': 'vcenter', 'align': 'center', 'border': 1, 'bg_color': c_bg})
+                if i_bg not in fmt_index:
+                    fmt_index[i_bg] = wb.add_format({'bold': True, 'valign': 'vcenter', 'align': 'left', 'border': 1, 'bg_color': i_bg})
+                
+                ws.write(r_idx + 1, 0, row_name, fmt_index[i_bg])
+                for c_idx, val in enumerate(df.loc[row_name]):
+                    ws.write(r_idx + 1, c_idx + 1, str(val) if pd.notna(val) else "", fmt_cells[c_bg])
+
+            ws.set_column(0, 0, 20)
+            ws.set_column(1, len(df.columns), 28)
+            
             for col_num, value in enumerate(df.columns.values):
-                ws.write(0, col_num + 1, value, f_cabecera)
+                ws.write(0, col_num + 1, value, fmt_cabecera)
+            ws.write(0, 0, "", fmt_cabecera)
+            
+        st.table(df)
         st.download_button("📥 Descargar Excel Semana", b.getvalue(), f"Sem_{lunes.strftime('%d%m')}.xlsx", "application/vnd.ms-excel")
 
     elif modo == "Mensual":
