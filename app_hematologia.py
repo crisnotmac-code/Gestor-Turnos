@@ -9,7 +9,7 @@ st.set_page_config(page_title="Gestor Hematología 2026", layout="wide")
 st.markdown("""<style>@media print { header, [data-testid="stSidebar"], [data-testid="stToolbar"] { display: none !important; } .main { max-width: 100% !important; padding: 0 !important; } @page { size: landscape; margin: 1cm; } }</style>""", unsafe_allow_html=True)
 
 # Lista Maestra Adjuntos
-plantilla = ["Dra. Busnego", "Dr. Moreno", "Dra. Sánchez", "Dra. Hernández", "Dra. Martín", "Dra. Alberich", "Dr. Breña", "Dra. Notario", "Dr. Figueroa", "Dra. Peris", "Dra. Montalvo", "Dr. R. de Paz", "Dra. Herrero", "Dra. Lorenzo", "Dra. Rodríguez", "Dra. Hernanz", "Dra. Marrero", "Dr. González", "Dr. García", "Dr. R. Rull", "Dr. De Ramos"]
+plantilla = ["Dra. Busnego", "Dr. Moreno", "Dra. Sánchez", "Dra. Hernández", "Dra. Martín", "Dra. Alberich", "Dr. Breña", "Dra. Notario", "Dr. Figueroa", "Dra. Peris", "Dra. Montalvo", "Dr. R. de Paz", "Dra. Herrero", "Dra. Lorenzo", "Dra. Rodríguez", "Dra. Hernanz", "Dra. Marrero", "Dr. González", "Dr. G. Roulston", "Dr. R. Rull", "Dr. De Ramos"]
 
 meses_es_str = {"ENERO":1, "FEBRERO":2, "MARZO":3, "ABRIL":4, "MAYO":5, "JUNIO":6, "JULIO":7, "AGOSTO":8, "SEPTIEMBRE":9, "OCTUBRE":10, "NOVIEMBRE":11, "DICIEMBRE":12}
 meses_es = {1:"ENERO", 2:"FEBRERO", 3:"MARZO", 4:"ABRIL", 5:"MAYO", 6:"JUNIO", 7:"JULIO", 8:"AGOSTO", 9:"SEPTIEMBRE", 10:"OCTUBRE", 11:"NOVIEMBRE", 12:"DICIEMBRE"}
@@ -22,13 +22,11 @@ def limpiar_texto(s):
     s = re.sub(r'[^\w\s]', '', s)
     return ' '.join(s.split())
 
-# NUEVO: Estandarizador de nombres de Residentes
 def formatear_resi(n_orig):
     n = limpiar_texto(str(n_orig))
     if not n: return ""
     
-    # Mapeos directos para asegurar homogeneidad absoluta
-    if "CLIMENT" in n or "JULIA" in n and "GONZALEZ" in n: return "Dra. Climent"
+    if "CLIMENT" in n or ("JULIA" in n and "GONZALEZ" in n): return "Dra. Climent"
     if "DOS SANTOS" in n: return "Dra. R. Dos Santos"
     if "RUBIO" in n: return "Dra. R. Rubio"
     if "MARCAL" in n: return "Dra. Marcal"
@@ -37,7 +35,6 @@ def formatear_resi(n_orig):
     if "CRESPO" in n: return "Dra. Crespo"
     if "OLIVA" in n: return "Dra. Oliva"
     
-    # Fallback genérico para nuevos residentes
     parts = n.split()
     if not parts: return ""
     fem_names = ["CARMEN", "MARIA", "SOFIA", "JULIA", "GLORIA", "VALERIA", "ANA", "PATRICIA", "SILVIA", "ELENA", "MINERVA", "NEREA", "YAXIRAXI", "NURIA", "CRISTINA", "LAURA"]
@@ -52,7 +49,7 @@ def match_medico(nombre_texto, med):
     
     if med == "Dr. R. de Paz": return ("PAZ" in nt) or (("RIOS" in nt or "PABLO" in nt) and "RULL" not in nt)
     if med == "Dr. R. Rull": return "RULL" in nt
-    if med == "Dr. García": return "ROULSTON" in nt or "KEVIN" in nt
+    if med == "Dr. G. Roulston": return "ROULSTON" in nt or "KEVIN" in nt
     if med == "Dra. Rodríguez": return "RODRIGUEZ" in nt and "SANTOS" not in nt and "RUBIO" not in nt
     if med == "Dr. De Ramos": return "RAMOS" in nt
     if med == "Dra. Alberich": return "ALBERICH" in nt or "LABERICH" in nt
@@ -327,12 +324,13 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         return False
 
     # 1. COAGULACIÓN Y SUR
-    disp_rios, disp_mont = "Dr. R. de Paz" not in asignados, "Dra. Montalvo" not in asignados
+    disp_rios = "Dr. R. de Paz" not in asignados
+    disp_mont = "Dra. Montalvo" not in asignados
     res["Coag"] = []
     if disp_rios: res["Coag"].append("Dr. R. de Paz"); asignados.append("Dr. R. de Paz")
     if disp_mont: res["Coag"].append("Dra. Montalvo"); asignados.append("Dra. Montalvo")
 
-    sur_titu = {"Monday": "Dr. García", "Tuesday": "Dra. Montalvo", "Wednesday": "Dra. Herrero", "Thursday": "Dr. De Ramos", "Friday": "Dra. Rodríguez"}.get(dia_en)
+    sur_titu = {"Monday": "Dr. G. Roulston", "Tuesday": "Dra. Montalvo", "Wednesday": "Dra. Herrero", "Thursday": "Dr. De Ramos", "Friday": "Dra. Rodríguez"}.get(dia_en)
     if sur_titu == "Dra. Montalvo" and disp_mont: res["Sur"] = "✅ Dra. Montalvo"
     elif asignar(sur_titu): res["Sur"] = f"✅ {sur_titu}"
     else: res["Sur"] = "❌ [VACÍO]"
@@ -352,11 +350,19 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         else: res["Agendas"][c] = f"❌ {m} (No disp.)"
 
     # 3. TAO (ACO)
-    tao_titu = {"Monday": "Dra. Montalvo", "Tuesday": "Dra. Lorenzo", "Wednesday": "Dr. R. de Paz", "Thursday": "Dra. Montalvo", "Friday": "Dr. R. de Paz"}.get(dia_en)
-    if tao_titu == "Dra. Montalvo" and disp_mont: res["TAO"] = "✅ Dra. Montalvo"
-    elif tao_titu == "Dr. R. de Paz" and disp_rios: res["TAO"] = "✅ Dr. R. de Paz"
-    elif tao_titu == "Dra. Lorenzo" and asignar("Dra. Lorenzo"): res["TAO"] = "✅ Dra. Lorenzo"
-    else: res["TAO"] = "✅ Dr. R. de Paz (Simult. ACO)" if disp_rios else "❌ [ACO VACÍO]"
+    tao_assigned = []
+    if dia_en in ["Monday", "Thursday"] and disp_mont:
+        tao_assigned.append("✅ Dra. Montalvo")
+    if dia_en in ["Tuesday", "Thursday"] and "Dra. Lorenzo" not in asignados:
+        asignados.append("Dra. Lorenzo")
+        tao_assigned.append("✅ Dra. Lorenzo")
+    if dia_en in ["Wednesday", "Friday"] and disp_rios:
+        tao_assigned.append("✅ Dr. R. de Paz")
+        
+    if tao_assigned:
+        res["TAO"] = " / ".join(tao_assigned)
+    else:
+        res["TAO"] = "✅ Dr. R. de Paz (Simult. ACO)" if disp_rios else "❌ [ACO VACÍO]"
 
     # 4. PEDIATRÍA E IC HOSPITALARIA
     ic_hosp = []
@@ -367,7 +373,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     else: res["Ped"] = "❗ [VACÍO]"
 
     if "Dr. González" not in ausentes + salientes + bajas: ic_hosp.append("✅ Dr. González")
-    if "Dr. García" not in ausentes + salientes + bajas: ic_hosp.append("✅ Dr. García")
+    if "Dr. G. Roulston" not in ausentes + salientes + bajas: ic_hosp.append("✅ Dr. G. Roulston")
     res["IC_Hosp"] = " / ".join(ic_hosp) if ic_hosp else "❌ [VACÍO]"
 
     # 5. LABS Y BANCO
@@ -387,9 +393,9 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     ]
     
     p_sust = ["Dr. De Ramos", "Dra. Herrero"]
-    hd_sust = ["Dra. Martín", "Dr. García", "Dr. De Ramos"] 
+    hd_sust = ["Dra. Martín", "Dr. G. Roulston", "Dr. De Ramos"] 
 
-    no_pisan_planta = ["Dra. Sánchez", "Dra. Hernández", "Dra. Lorenzo", "Dr. R. Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dr. García", "Dra. Martín"]
+    no_pisan_planta = ["Dra. Sánchez", "Dra. Hernández", "Dra. Lorenzo", "Dr. R. Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dr. G. Roulston", "Dra. Martín"]
     no_pisan_hd = ["Dr. Moreno", "Dra. Rodríguez", "Dra. Lorenzo", "Dr. R. Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dra. Herrero"]
     no_pisan_p1_p2 = ["Dra. Rodríguez"]
 
@@ -468,9 +474,9 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         med_name = med_text.replace("✅", "").replace("🔄", "").replace("🟦", "").replace("⚠️", "").split("(")[0].strip()
         
         hd[hd_idx] = f"⚖️ {med_name} (Balanceado)"
-        p_hoy[movable_idx] = ""
+        p_hoy[movable_idx] = "---" # Balanceado, por tanto visualmente no es un error (no pondrá X VACIO)
         
-        p_filled = [i for i, x in enumerate(p_hoy) if x != ""]
+        p_filled = [i for i, x in enumerate(p_hoy) if x != "" and x != "---"]
         hd_filled = [i for i, x in enumerate(hd[:3]) if x != ""]
 
     for i in range(3):
@@ -500,7 +506,12 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     else: res["IC_Ext"] = "❌ [VACÍO]"
 
     res["H_Dia"] = [f"HD{i+1}: {h}" for i, h in enumerate(hd) if h != ""]
-    res["Planta"] = [f"P{i+1}: {p}" for i, p in enumerate(p_hoy)]
+    res["Planta"] = [f"P{i+1}: {p}" for i, p in enumerate(p_hoy) if p != "---"] # Oculta las camas cerradas por balanceo
+    
+    # Rellenar con strings vacíos si se cerraron camas para mantener el diseño visual estable
+    while len(res["Planta"]) < 3:
+        res["Planta"].append("---")
+        
     res["Gestion"] = [m for m in plantilla if m not in asignados]
     return res
 
