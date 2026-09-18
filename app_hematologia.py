@@ -287,12 +287,26 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
                             if not is_saliente and not is_ausente and resi != "": 
                                 rot_texto = str(r[c_rot]).strip()
                                 rot_up = rot_texto.upper()
-                                if any(k in rot_up for k in ["PLANTA", "HOSPITALIZACION", "HOSPITALIZACIÓN"]): resi_planta.append(resi)
-                                elif any(k in rot_up for k in ["DIA", "DÍA", "HD", "AMBULATORIO"]): resi_hd.append(resi)
-                                elif any(k in rot_up for k in ["DIAG", "LAB", "MORFOLOG", "CITOMETR", "BIOLOGIA"]): resi_diag.append(resi)
-                                elif any(k in rot_up for k in ["BANCO", "TRANSFUS", "AFERESIS", "AFÉRESIS"]): resi_banco.append(resi)
-                                elif any(k in rot_up for k in ["CONS", "XHEM"]): resi_cons.append(resi)
-                                else: resi_otros.append(f"{resi} ({rot_texto})")
+                                
+                                asignado = False
+                                # NUEVO PARSER: Condiciones de día de la semana para rotaciones mixtas
+                                if dia_en == "Friday" and "VIERNES" in rot_up:
+                                    if "CONS" in rot_up:
+                                        resi_cons.append(resi)
+                                        asignado = True
+                                    elif "PLANTA" in rot_up:
+                                        resi_planta.append(resi)
+                                        asignado = True
+                                        
+                                if not asignado:
+                                    # Limpiamos la cadena quitando excepciones entre paréntesis o " y "
+                                    rot_main = re.split(r' Y | \(', rot_up)[0]
+                                    if any(k in rot_main for k in ["PLANTA", "HOSPITALIZACION", "HOSPITALIZACIÓN"]): resi_planta.append(resi)
+                                    elif any(k in rot_main for k in ["DIA", "DÍA", "HD", "AMBULATORIO"]): resi_hd.append(resi)
+                                    elif any(k in rot_main for k in ["DIAG", "LAB", "MORFOLOG", "CITOMETR", "BIOLOGIA"]): resi_diag.append(resi)
+                                    elif any(k in rot_main for k in ["BANCO", "TRANSFUS", "AFERESIS", "AFÉRESIS"]): resi_banco.append(resi)
+                                    elif any(k in rot_main for k in ["CONS", "XHEM"]): resi_cons.append(resi)
+                                    else: resi_otros.append(f"{resi} ({rot_texto})")
                 except: continue
         except: pass
 
@@ -404,6 +418,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     no_pisan_planta = ["Dra. Sánchez", "Dra. Hernández", "Dra. Lorenzo", "Dr. R. Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dra. Martín"]
     no_pisan_hd = ["Dr. Moreno", "Dra. R. Esteban", "Dra. Lorenzo", "Dr. R. Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dra. Herrero", "Dra. Montalvo"]
     
+    # Blindaje Absoluto
     no_pisan_p1_p2 = ["Dra. R. Esteban"]
     no_pisan_p1_p3 = ["Dr. Moreno"]
 
@@ -675,7 +690,6 @@ if df_g is not None:
                 tb["HD3"].append(g(d["H_Dia"],2))
                 tb["HD Res"].append(" / ".join(d["Resi_HD"]) if d["Resi_HD"] else "")
                 
-                # Cons 3 Viernes a Residente
                 c3_val = nrms[2]
                 cons_resi_val = " / ".join(d["Resi_Cons"]) if d["Resi_Cons"] else ""
                 if "Friday" in d['Día'] and d["Resi_Cons"]:
@@ -780,7 +794,6 @@ if df_g is not None:
                 for c_idx, val in enumerate(df.loc[row_name]):
                     s_val = str(val).strip() if pd.notna(val) else ""
                     
-                    # Control Estricto de Celdas Rojas (Vacío real o Balanceado ---)
                     is_empty_cell = (s_val == "" or "VACÍO" in s_val or s_val == "---")
                     is_excluded_row = row_name in ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P Resi", "HD Res", "Cons Resi", "Diag Resi", "Banco Resi", "Otras Rotaciones", "Gestión"]
                     is_ic_virt_exception = (row_name == "IC Virt" and c_idx in [0, 3]) 
