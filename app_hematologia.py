@@ -397,120 +397,112 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     res["Laboratorio"] = "✅ Dra. Alberich" if asignar("Dra. Alberich") else "❌ [VACÍO]"
     res["Banco"] = ["✅ Dr. Figueroa" if asignar("Dr. Figueroa") else "❌ [VACÍO]", "✅ Dra. Peris" if asignar("Dra. Peris") else "❌ [VACÍO]"]
 
-    # 6. ASIGNACIÓN ESTRICTA (MATRIZ DIARIA)
+    # =========================================================================
+    # 6. ASIGNACIÓN ESTRICTA DE PLANTA Y HOSPITAL DE DÍA (MATRICES EXACTAS)
+    # =========================================================================
     p_hoy = ["", "", ""]
     hd = ["", "", ""]
     
-    # Planta siempre inamovible
     p_titu = ["Dra. Busnego", "Dr. Moreno", "Dra. R. Esteban"]
     
-    # Matrices diarias exactas para Hospital de Día
-    if dia_en == "Monday":
-        hd_titu = ["Dra. Sánchez", "Dra. Hernández", "Dra. Martín"]
-        hd_sust = ["Dr. De Ramos", "Dr. G. Roulston"]
-    elif dia_en == "Tuesday":
-        hd_titu = ["Dr. R. Rull", "Dra. Hernández", "Dra. Martín"]
-        hd_sust = ["Dr. G. Roulston", "Dr. De Ramos"]
-    elif dia_en == "Wednesday":
-        hd_titu = ["Dra. Sánchez", "Dr. De Ramos", "Dr. G. Roulston"]
-        hd_sust = ["Dra. Hernández", "Dra. Martín"]
-    elif dia_en == "Thursday":
-        hd_titu = ["Dr. G. Roulston", "Dra. Hernández", "Dra. Martín"]
-        hd_sust = ["Dr. De Ramos"]
-    elif dia_en == "Friday":
-        hd_titu = ["Dra. Sánchez", "Dra. Hernández", "Dr. G. Roulston"]
-        hd_sust = ["Dr. De Ramos", "Dra. Martín"]
-    else:
-        hd_titu = ["", "", ""]
-        hd_sust = []
-        
-    p_sust = ["Dra. Herrero", "Dr. De Ramos", "Dr. G. Roulston"]
-
+    hd_titu = [
+        {"Monday": "Dra. Sánchez", "Tuesday": "Dr. R. Rull", "Wednesday": "Dra. Sánchez", "Thursday": "Dr. G. Roulston", "Friday": "Dra. Sánchez"}.get(dia_en),
+        {"Monday": "Dra. Hernández", "Tuesday": "Dra. Hernández", "Wednesday": "Dr. De Ramos", "Thursday": "Dra. Hernández", "Friday": "Dra. Hernández"}.get(dia_en),
+        {"Monday": "Dra. Martín", "Tuesday": "Dra. Martín", "Wednesday": "Dr. G. Roulston", "Thursday": "Dra. Martín", "Friday": "Dr. G. Roulston"}.get(dia_en)
+    ]
+    
     habituales_hd = ["Dra. Sánchez", "Dra. Hernández", "Dr. De Ramos", "Dra. Martín", "Dr. R. Rull", "Dr. G. Roulston"]
-
     no_pisan_planta = ["Dra. Sánchez", "Dra. Hernández", "Dra. Lorenzo", "Dr. R. Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dra. Martín"]
-    no_pisan_hd = ["Dr. Moreno", "Dra. R. Esteban", "Dra. Lorenzo", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dra. Herrero", "Dra. Montalvo"]
+    no_pisan_hd = ["Dr. Moreno", "Dra. R. Esteban", "Dra. Lorenzo", "Dr. R. Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dra. Herrero", "Dra. Montalvo"]
     
     no_pisan_p1_p2 = ["Dra. R. Esteban"]
     no_pisan_p1_p3 = ["Dr. Moreno"]
 
-    # Asignar Titulares
-    for i in range(3):
-        if p_titu[i] and p_titu[i] not in asignados:
-            p_hoy[i] = f"✅ {p_titu[i]}"
-            asignados.append(p_titu[i])
-            
-    for i in range(3):
-        if hd_titu[i] and hd_titu[i] not in asignados:
-            hd[i] = f"✅ {hd_titu[i]}"
-            asignados.append(hd_titu[i])
+    def is_gest(m): return (dia_en=="Tuesday" and m=="Dra. Sánchez") or (dia_en=="Wednesday" and m=="Dra. Hernández") or (dia_en=="Friday" and m=="Dra. Martín")
 
-    # REGLA ESPECIAL MIÉRCOLES: Si falta alguien en Planta y Herrero no está, G. Roulston sube de HD a Planta
-    if dia_en == "Wednesday": 
-        if any(p == "" for p in p_hoy) and "Dra. Herrero" in asignados: # Herrero ocupada/ausente
-            if "✅ Dr. G. Roulston" in hd:
-                idx = hd.index("✅ Dr. G. Roulston")
-                hd[idx] = "" # Vaciamos su sillón
-                asignados.remove("Dr. G. Roulston") # Lo liberamos para la planta
+    # 6.1 ASIGNAR TITULARES DE PLANTA Y HD
+    for i in range(3):
+        if hd_titu[i] and asignar(hd_titu[i]): hd[i] = f"✅ {hd_titu[i]}"
+    for i in range(3):
+        if p_titu[i] and asignar(p_titu[i]): p_hoy[i] = f"✅ {p_titu[i]}"
 
-    # Cubrir huecos de Planta con suplentes
+    # 6.2 EL TRADE DEL MIÉRCOLES (Rescate especial para Planta)
+    if dia_en == "Wednesday":
+        if any(p == "" for p in p_hoy) and "✅ Dr. G. Roulston" in hd:
+            if "Dra. Herrero" in asignados: 
+                if "Dra. Hernández" not in asignados:
+                    idx = hd.index("✅ Dr. G. Roulston")
+                    hd[idx] = "⚠️ Dra. Hernández (Gestión rota)"
+                    asignados.remove("Dr. G. Roulston")
+                    asignados.append("Dra. Hernández")
+
+    # 6.3 RELLENAR PLANTA: COMODÍN ABSOLUTO
     for i in range(3):
-        if p_hoy[i] == "":
-            for s in p_sust:
-                if s not in asignados and s not in no_pisan_planta:
-                    if i in [0, 1] and s in no_pisan_p1_p2: continue
-                    if i in [0, 2] and s in no_pisan_p1_p3: continue
-                    p_hoy[i] = f"🔄 {s}"
-                    asignados.append(s)
-                    break
-                    
-    # Cubrir huecos de HD con suplentes
-    for i in range(3):
-        if hd[i] == "":
-            for s in hd_sust:
-                if s not in asignados and s not in no_pisan_hd:
+        if p_hoy[i] == "" and "Dra. Herrero" not in asignados:
+            p_hoy[i] = "🔄 Dra. Herrero"
+            asignados.append("Dra. Herrero")
+
+    # 6.4 RELLENAR HD: SUSTITUTOS OFICIALES
+    for s in ["Dr. De Ramos", "Dr. G. Roulston", "Dra. Martín"]:
+        if s not in asignados and s not in no_pisan_hd:
+            for i in range(3):
+                if hd[i] == "":
                     icon = "✅" if s in habituales_hd else "🔄"
                     hd[i] = f"{icon} {s}"
                     asignados.append(s)
                     break
 
-    def is_gest(m): return (dia_en=="Tuesday" and m=="Dra. Sánchez") or (dia_en=="Wednesday" and m=="Dra. Hernández") or (dia_en=="Friday" and m=="Dra. Martín")
+    # 6.5 RELLENAR PLANTA: SUSTITUTOS DE HD
+    for s in ["Dr. G. Roulston", "Dr. De Ramos"]:
+        if s not in asignados and s not in no_pisan_planta:
+            for i in range(3):
+                if p_hoy[i] == "":
+                    if i in [0, 1] and s in no_pisan_p1_p2: continue
+                    if i in [0, 2] and s in no_pisan_p1_p3: continue
+                    p_hoy[i] = f"🔄 {s}"
+                    asignados.append(s)
+                    break
 
-    # Rellenar HD con personal genérico si falla todo lo demás
-    for i in range(3):
-        if hd[i] == "":
-            for m in plantilla:
-                if m not in asignados and m not in no_pisan_hd and not is_gest(m):
+    # 6.6 RELLENAR HD: GENÉRICO LIBRES
+    for m in plantilla:
+        if m not in asignados and m not in no_pisan_hd and not is_gest(m):
+            for i in range(3):
+                if hd[i] == "":
                     icon = "✅" if m in habituales_hd else "🟦"
                     hd[i] = f"{icon} {m}"
                     asignados.append(m)
                     break
-            if hd[i] == "":
-                for m in plantilla:
-                    if m not in asignados and m not in no_pisan_hd:
-                        hd[i] = f"⚠️ {m} (Gestión rota)"
-                        asignados.append(m)
-                        break
-                        
-    # Rellenar Planta con personal genérico si falla todo lo demás
-    for i in range(3):
-        if p_hoy[i] == "":
-            for m in plantilla:
-                if m not in asignados and m not in no_pisan_planta:
+
+    # 6.7 RELLENAR PLANTA: GENÉRICO LIBRES
+    for m in plantilla:
+        if m not in asignados and m not in no_pisan_planta and not is_gest(m):
+            for i in range(3):
+                if p_hoy[i] == "":
                     if i in [0, 1] and m in no_pisan_p1_p2: continue
                     if i in [0, 2] and m in no_pisan_p1_p3: continue
-                    if is_gest(m): continue
                     p_hoy[i] = f"🟦 {m}"
                     asignados.append(m)
                     break
-            if p_hoy[i] == "":
-                for m in plantilla:
-                    if m not in asignados and m not in no_pisan_planta:
-                        if i in [0, 1] and m in no_pisan_p1_p2: continue
-                        if i in [0, 2] and m in no_pisan_p1_p3: continue
-                        p_hoy[i] = f"⚠️ {m} (Gestión rota)"
-                        asignados.append(m)
-                        break
+
+    # 6.8 RELLENAR HD: GESTIÓN ROTA (ÚLTIMO RECURSO)
+    for m in plantilla:
+        if m not in asignados and m not in no_pisan_hd and is_gest(m):
+            for i in range(3):
+                if hd[i] == "":
+                    hd[i] = f"⚠️ {m} (Gestión rota)"
+                    asignados.append(m)
+                    break
+
+    # 6.9 RELLENAR PLANTA: GESTIÓN ROTA (ÚLTIMO RECURSO)
+    for m in plantilla:
+        if m not in asignados and m not in no_pisan_planta and is_gest(m):
+            for i in range(3):
+                if p_hoy[i] == "":
+                    if i in [0, 1] and m in no_pisan_p1_p2: continue
+                    if i in [0, 2] and m in no_pisan_p1_p3: continue
+                    p_hoy[i] = f"⚠️ {m} (Gestión rota)"
+                    asignados.append(m)
+                    break
 
     for i in range(3):
         if p_hoy[i] == "": p_hoy[i] = "❌ [VACÍO]"
@@ -780,7 +772,7 @@ if df_g is not None:
                 for c_idx, val in enumerate(df.loc[row_name]):
                     s_val = str(val).strip() if pd.notna(val) else ""
                     
-                    is_empty_cell = (s_val == "" or "VACÍO" in s_val)
+                    is_empty_cell = (s_val == "" or "VACÍO" in s_val or s_val == "---")
                     is_excluded_row = row_name in ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P Resi", "HD Res", "Cons Resi", "Diag Resi", "Banco Resi", "Otras Rotaciones", "Gestión"]
                     is_ic_virt_exception = (row_name == "IC Virt" and c_idx in [0, 3]) 
                     
