@@ -289,7 +289,6 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
                                 rot_up = rot_texto.upper()
                                 
                                 asignado = False
-                                # NUEVO PARSER: Condiciones de día de la semana para rotaciones mixtas
                                 if dia_en == "Friday" and "VIERNES" in rot_up:
                                     if "CONS" in rot_up:
                                         resi_cons.append(resi)
@@ -299,7 +298,6 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
                                         asignado = True
                                         
                                 if not asignado:
-                                    # Limpiamos la cadena quitando excepciones entre paréntesis o " y "
                                     rot_main = re.split(r' Y | \(', rot_up)[0]
                                     if any(k in rot_main for k in ["PLANTA", "HOSPITALIZACION", "HOSPITALIZACIÓN"]): resi_planta.append(resi)
                                     elif any(k in rot_main for k in ["DIA", "DÍA", "HD", "AMBULATORIO"]): resi_hd.append(resi)
@@ -411,14 +409,14 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     ]
     
     p_sust = ["Dra. Herrero", "Dr. De Ramos", "Dr. G. Roulston"]
-    hd_sust = ["Dr. De Ramos", "Dr. G. Roulston", "Dra. Martín"] 
+    # NUEVO ORDEN DE PRIORIDAD EN HD
+    hd_sust = ["Dra. Martín", "Dr. De Ramos", "Dr. G. Roulston"] 
 
     habituales_hd = ["Dra. Sánchez", "Dra. Hernández", "Dr. De Ramos", "Dra. Martín", "Dr. R. Rull", "Dr. G. Roulston"]
 
     no_pisan_planta = ["Dra. Sánchez", "Dra. Hernández", "Dra. Lorenzo", "Dr. R. Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dra. Martín"]
     no_pisan_hd = ["Dr. Moreno", "Dra. R. Esteban", "Dra. Lorenzo", "Dr. R. Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dra. Herrero", "Dra. Montalvo"]
     
-    # Blindaje Absoluto
     no_pisan_p1_p2 = ["Dra. R. Esteban"]
     no_pisan_p1_p3 = ["Dr. Moreno"]
 
