@@ -397,168 +397,120 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     res["Laboratorio"] = "✅ Dra. Alberich" if asignar("Dra. Alberich") else "❌ [VACÍO]"
     res["Banco"] = ["✅ Dr. Figueroa" if asignar("Dr. Figueroa") else "❌ [VACÍO]", "✅ Dra. Peris" if asignar("Dra. Peris") else "❌ [VACÍO]"]
 
-    # 6. ASIGNACIÓN ESTRICTA DE PLANTA Y HD
+    # 6. ASIGNACIÓN ESTRICTA (MATRIZ DIARIA)
     p_hoy = ["", "", ""]
     hd = ["", "", ""]
     
+    # Planta siempre inamovible
     p_titu = ["Dra. Busnego", "Dr. Moreno", "Dra. R. Esteban"]
-    hd_titu = [
-        {"Monday": "Dra. Sánchez", "Tuesday": "Dr. R. Rull", "Wednesday": "Dra. Sánchez", "Friday": "Dra. Sánchez"}.get(dia_en),
-        {"Monday": "Dra. Hernández", "Tuesday": "Dra. Hernández", "Thursday": "Dra. Hernández", "Friday": "Dra. Hernández"}.get(dia_en),
-        {"Monday": "Dra. Martín", "Tuesday": "Dra. Martín", "Thursday": "Dra. Martín"}.get(dia_en)
-    ]
     
-    p_sust = ["Dra. Herrero", "Dr. De Ramos", "Dr. G. Roulston"]
-    
-    # Motor Inteligente de HD
-    if dia_en == "Friday":
-        hd_sust_queue = ["Dr. De Ramos", "Dr. G. Roulston", "Dra. Martín"]
+    # Matrices diarias exactas para Hospital de Día
+    if dia_en == "Monday":
+        hd_titu = ["Dra. Sánchez", "Dra. Hernández", "Dra. Martín"]
+        hd_sust = ["Dr. De Ramos", "Dr. G. Roulston"]
+    elif dia_en == "Tuesday":
+        hd_titu = ["Dr. R. Rull", "Dra. Hernández", "Dra. Martín"]
+        hd_sust = ["Dr. G. Roulston", "Dr. De Ramos"]
+    elif dia_en == "Wednesday":
+        hd_titu = ["Dra. Sánchez", "Dr. De Ramos", "Dr. G. Roulston"]
+        hd_sust = ["Dra. Hernández", "Dra. Martín"]
+    elif dia_en == "Thursday":
+        hd_titu = ["Dr. G. Roulston", "Dra. Hernández", "Dra. Martín"]
+        hd_sust = ["Dr. De Ramos"]
+    elif dia_en == "Friday":
+        hd_titu = ["Dra. Sánchez", "Dra. Hernández", "Dr. G. Roulston"]
+        hd_sust = ["Dr. De Ramos", "Dra. Martín"]
     else:
-        hd_sust_queue = ["Dra. Martín", "Dr. De Ramos", "Dr. G. Roulston"]
+        hd_titu = ["", "", ""]
+        hd_sust = []
+        
+    p_sust = ["Dra. Herrero", "Dr. De Ramos", "Dr. G. Roulston"]
 
     habituales_hd = ["Dra. Sánchez", "Dra. Hernández", "Dr. De Ramos", "Dra. Martín", "Dr. R. Rull", "Dr. G. Roulston"]
 
     no_pisan_planta = ["Dra. Sánchez", "Dra. Hernández", "Dra. Lorenzo", "Dr. R. Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dra. Martín"]
-    no_pisan_hd = ["Dr. Moreno", "Dra. R. Esteban", "Dra. Lorenzo", "Dr. R. Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dra. Herrero", "Dra. Montalvo"]
+    no_pisan_hd = ["Dr. Moreno", "Dra. R. Esteban", "Dra. Lorenzo", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dra. Herrero", "Dra. Montalvo"]
     
     no_pisan_p1_p2 = ["Dra. R. Esteban"]
     no_pisan_p1_p3 = ["Dr. Moreno"]
 
-    def is_gest(m): return (dia_en=="Tuesday" and m=="Dra. Sánchez") or (dia_en=="Wednesday" and m=="Dra. Hernández")
-
-    # Titulares primero
+    # Asignar Titulares
     for i in range(3):
-        if hd_titu[i] and asignar(hd_titu[i]): hd[i] = f"✅ {hd_titu[i]}"
+        if p_titu[i] and p_titu[i] not in asignados:
+            p_hoy[i] = f"✅ {p_titu[i]}"
+            asignados.append(p_titu[i])
+            
     for i in range(3):
-        if p_titu[i] and asignar(p_titu[i]): p_hoy[i] = f"✅ {p_titu[i]}"
+        if hd_titu[i] and hd_titu[i] not in asignados:
+            hd[i] = f"✅ {hd_titu[i]}"
+            asignados.append(hd_titu[i])
 
-    def fill_planta(spot_idx, sust_list):
-        for s in sust_list:
-            if s not in asignados:
-                if s in no_pisan_planta: continue
-                if spot_idx in [0, 1] and s in no_pisan_p1_p2: continue
-                if spot_idx in [0, 2] and s in no_pisan_p1_p3: continue
-                asignados.append(s)
-                if s == "Dra. Herrero": return f"🔄 {s}" 
-                return f"🔄 {s}"
-        
-        for m in plantilla:
-            if m not in asignados:
-                if m in no_pisan_planta: continue
-                if spot_idx in [0, 1] and m in no_pisan_p1_p2: continue
-                if spot_idx in [0, 2] and m in no_pisan_p1_p3: continue
-                if is_gest(m): continue
-                asignados.append(m)
-                if m == "Dra. Herrero": return f"🔄 {m}"
-                return f"🟦 {m}"
-                
-        for m in plantilla:
-            if m not in asignados:
-                if m in no_pisan_planta: continue
-                if spot_idx in [0, 1] and m in no_pisan_p1_p2: continue
-                if spot_idx in [0, 2] and m in no_pisan_p1_p3: continue
-                asignados.append(m)
-                if m == "Dra. Herrero": return f"🔄 {m}"
-                return f"⚠️ {m} (Gestión)"
-                
-        return ""
+    # REGLA ESPECIAL MIÉRCOLES: Si falta alguien en Planta y Herrero no está, G. Roulston sube de HD a Planta
+    if dia_en == "Wednesday": 
+        if any(p == "" for p in p_hoy) and "Dra. Herrero" in asignados: # Herrero ocupada/ausente
+            if "✅ Dr. G. Roulston" in hd:
+                idx = hd.index("✅ Dr. G. Roulston")
+                hd[idx] = "" # Vaciamos su sillón
+                asignados.remove("Dr. G. Roulston") # Lo liberamos para la planta
 
-    def fill_hd_inteligente():
-        # 1. Pasan los sustitutos oficiales por orden, con preferencia de silla
-        for s in hd_sust_queue:
-            if s not in asignados and s not in no_pisan_hd:
-                idx_to_fill = -1
-                if s == "Dra. Martín" and hd[2] == "": idx_to_fill = 2
-                elif s == "Dr. G. Roulston" and hd[1] == "": idx_to_fill = 1
-                
-                # Si su silla preferida estaba ocupada, cogen la primera libre
-                if idx_to_fill == -1:
-                    for i in range(3):
-                        if hd[i] == "":
-                            idx_to_fill = i
-                            break
-                            
-                if idx_to_fill != -1:
+    # Cubrir huecos de Planta con suplentes
+    for i in range(3):
+        if p_hoy[i] == "":
+            for s in p_sust:
+                if s not in asignados and s not in no_pisan_planta:
+                    if i in [0, 1] and s in no_pisan_p1_p2: continue
+                    if i in [0, 2] and s in no_pisan_p1_p3: continue
+                    p_hoy[i] = f"🔄 {s}"
                     asignados.append(s)
-                    icon = "✅" if s in habituales_hd else "🔄"
-                    hd[idx_to_fill] = f"{icon} {s}"
+                    break
                     
-        # 2. Si sigue habiendo hueco, comprueba si hay alguien en Gestión Rota
-        if any(h == "" for h in hd):
-            hd_gest = {"Tuesday": "Dra. Sánchez", "Wednesday": "Dra. Hernández"}.get(dia_en)
-            if hd_gest and hd_gest not in asignados:
-                asignados.append(hd_gest)
-                for i in range(3):
-                    if hd[i] == "":
-                        hd[i] = f"⚠️ {hd_gest} (Gestión rota)"
+    # Cubrir huecos de HD con suplentes
+    for i in range(3):
+        if hd[i] == "":
+            for s in hd_sust:
+                if s not in asignados and s not in no_pisan_hd:
+                    icon = "✅" if s in habituales_hd else "🔄"
+                    hd[i] = f"{icon} {s}"
+                    asignados.append(s)
+                    break
+
+    def is_gest(m): return (dia_en=="Tuesday" and m=="Dra. Sánchez") or (dia_en=="Wednesday" and m=="Dra. Hernández") or (dia_en=="Friday" and m=="Dra. Martín")
+
+    # Rellenar HD con personal genérico si falla todo lo demás
+    for i in range(3):
+        if hd[i] == "":
+            for m in plantilla:
+                if m not in asignados and m not in no_pisan_hd and not is_gest(m):
+                    icon = "✅" if m in habituales_hd else "🟦"
+                    hd[i] = f"{icon} {m}"
+                    asignados.append(m)
+                    break
+            if hd[i] == "":
+                for m in plantilla:
+                    if m not in asignados and m not in no_pisan_hd:
+                        hd[i] = f"⚠️ {m} (Gestión rota)"
+                        asignados.append(m)
                         break
                         
-        # 3. Resto de plantilla que no está en Gestión
-        for m in plantilla:
-            if any(h == "" for h in hd):
-                if m not in asignados and m not in no_pisan_hd and not is_gest(m):
+    # Rellenar Planta con personal genérico si falla todo lo demás
+    for i in range(3):
+        if p_hoy[i] == "":
+            for m in plantilla:
+                if m not in asignados and m not in no_pisan_planta:
+                    if i in [0, 1] and m in no_pisan_p1_p2: continue
+                    if i in [0, 2] and m in no_pisan_p1_p3: continue
+                    if is_gest(m): continue
+                    p_hoy[i] = f"🟦 {m}"
                     asignados.append(m)
-                    icon = "✅" if m in habituales_hd else "🟦"
-                    for i in range(3):
-                        if hd[i] == "":
-                            hd[i] = f"{icon} {m}"
-                            break
-                            
-        # 4. Resto de plantilla (incluso los de Gestión)
-        for m in plantilla:
-            if any(h == "" for h in hd):
-                if m not in asignados and m not in no_pisan_hd:
-                    asignados.append(m)
-                    icon = "✅" if m in habituales_hd else "⚠️"
-                    for i in range(3):
-                        if hd[i] == "":
-                            hd[i] = f"{icon} {m} (Gestión)"
-                            break
-
-    if p_hoy[0] == "": p_hoy[0] = fill_planta(0, p_sust)
-    if p_hoy[1] == "": p_hoy[1] = fill_planta(1, p_sust)
-    
-    if dia_en in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]:
-        fill_hd_inteligente()
-
-    if p_hoy[2] == "":
-        hd_lleno = all(h != "" for h in hd[:3])
-        if hd_lleno: 
-            p_hoy[2] = fill_planta(2, p_sust)
-
-    p_filled = [i for i, x in enumerate(p_hoy) if x != ""]
-    hd_filled = [i for i, x in enumerate(hd[:3]) if x != ""]
-    
-    while len(p_filled) > len(hd_filled):
-        movable_idx = None
-        for idx in [2, 0, 1]:
-            if p_hoy[idx] != "":
-                med_name = p_hoy[idx].replace("✅", "").replace("🔄", "").replace("🟦", "").replace("⚠️", "").split("(")[0].strip()
-                if med_name not in ["Dr. Moreno", "Dra. R. Esteban", "Dra. Busnego", "Dra. Herrero"]:
-                    movable_idx = idx
                     break
-        
-        if movable_idx is None: break 
-        
-        free_hd = [i for i in range(3) if i not in hd_filled]
-        if not free_hd: break
-        
-        hd_idx = free_hd[0]
-        med_text = p_hoy[movable_idx]
-        med_name = med_text.replace("✅", "").replace("🔄", "").replace("🟦", "").replace("⚠️", "").split("(")[0].strip()
-        
-        hd[hd_idx] = f"✅ {med_name}" if med_name in habituales_hd else f"⚖️ {med_name}"
-        p_hoy[movable_idx] = "---" 
-        
-        p_filled = [i for i, x in enumerate(p_hoy) if x != "" and x != "---"]
-        hd_filled = [i for i, x in enumerate(hd[:3]) if x != ""]
-
-    if "Dra. Herrero" not in asignados:
-        for idx in [2, 0, 1]:
-            if p_hoy[idx] in ["", "---"]:
-                p_hoy[idx] = "🔄 Dra. Herrero"
-                asignados.append("Dra. Herrero")
-                break
+            if p_hoy[i] == "":
+                for m in plantilla:
+                    if m not in asignados and m not in no_pisan_planta:
+                        if i in [0, 1] and m in no_pisan_p1_p2: continue
+                        if i in [0, 2] and m in no_pisan_p1_p3: continue
+                        p_hoy[i] = f"⚠️ {m} (Gestión rota)"
+                        asignados.append(m)
+                        break
 
     for i in range(3):
         if p_hoy[i] == "": p_hoy[i] = "❌ [VACÍO]"
@@ -828,7 +780,7 @@ if df_g is not None:
                 for c_idx, val in enumerate(df.loc[row_name]):
                     s_val = str(val).strip() if pd.notna(val) else ""
                     
-                    is_empty_cell = (s_val == "" or "VACÍO" in s_val or s_val == "---")
+                    is_empty_cell = (s_val == "" or "VACÍO" in s_val)
                     is_excluded_row = row_name in ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P Resi", "HD Res", "Cons Resi", "Diag Resi", "Banco Resi", "Otras Rotaciones", "Gestión"]
                     is_ic_virt_exception = (row_name == "IC Virt" and c_idx in [0, 3]) 
                     
