@@ -343,7 +343,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         "Tuesday": [("XHEM4A", "Dra. Marrero"), ("XHEM4E", "Dr. De Ramos"), ("XHEM11", "Dr. R. de Paz"), ("XHEM1A", "Dra. Herrero")], 
         "Wednesday": [("XHEM4B", "Dra. Hernanz"), ("XHEM4D", "Dra. Martín"), ("XHEM4G", "Dra. Lorenzo"), ("XHEM10 (Tromb.)", "Dra. Montalvo")], 
         "Thursday": [("XHEM4B", "Dra. Hernanz"), ("XHEM5", "Dra. Sánchez"), ("XHEM11", "Dr. R. de Paz"), ("XHEM1A", "Dra. Herrero")], 
-        "Friday": [("XHEM4A", "Dra. Marrero"), ("XHEM11", "Dr. R. de Paz"), ("XHEM10 (Tromb.)", "Dra. Montalvo")]
+        "Friday": [("XHEM4A", "Dra. Marrero"), ("XHEM4B", "Dra. Montalvo"), ("XHEM11", "Dr. R. de Paz")] # XHEM4B para Montalvo asegura que caiga en Cons 2
     }
     for cod in ["XHEM4A", "XHEM4B", "XHEM4D", "XHEM4E", "XHEM4G", "XHEM5", "XHEM1A", "XHEM10 (Tromb.)", "XHEM11"]: res["Agendas"][cod] = ""
     for c, m in r_xhem.get(dia_en, []):
@@ -351,7 +351,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         elif asignar(m): res["Agendas"][c] = f"✅ {m}"
         else: res["Agendas"][c] = f"❌ {m} (No disp.)"
 
-    # 3. TAO (ACO) 
+    # 3. TAO (ACO)
     tao_assigned = []
     if dia_en in ["Monday"] and disp_mont:
         tao_assigned.append("✅ Dra. Montalvo")
@@ -395,16 +395,13 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     ]
     
     p_sust = ["Dra. Herrero", "Dr. De Ramos", "Dr. G. Roulston"]
-    hd_sust = ["Dr. De Ramos", "Dr. G. Roulston", "Dra. Martín"] # Martín baja prioridad en viernes
+    hd_sust = ["Dr. De Ramos", "Dr. G. Roulston", "Dra. Martín"] 
 
     habituales_hd = ["Dra. Sánchez", "Dra. Hernández", "Dr. De Ramos", "Dra. Martín", "Dr. R. Rull", "Dr. G. Roulston"]
 
     no_pisan_planta = ["Dra. Sánchez", "Dra. Hernández", "Dra. Lorenzo", "Dr. R. Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dra. Martín"]
     no_pisan_hd = ["Dr. Moreno", "Dra. R. Esteban", "Dra. Lorenzo", "Dr. R. Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dra. Herrero"]
     
-    no_pisan_p1_p2 = ["Dra. R. Esteban"]
-    no_pisan_p1_p3 = ["Dr. Moreno"]
-
     def is_gest(m): return (dia_en=="Tuesday" and m=="Dra. Sánchez") or (dia_en=="Wednesday" and m=="Dra. Hernández")
 
     for i in range(3):
@@ -417,8 +414,11 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
             if s not in asignados:
                 if spot_type == 'P' and s in no_pisan_planta: continue
                 if spot_type == 'HD' and s in no_pisan_hd: continue
-                if spot_type == 'P' and spot_idx in [0, 1] and s in no_pisan_p1_p2: continue
-                if spot_type == 'P' and spot_idx in [0, 2] and s in no_pisan_p1_p3: continue
+                # Blindaje Absoluto: Moreno solo P2. R. Esteban solo P3.
+                if spot_type == 'P' and spot_idx == 0 and s in ["Dr. Moreno", "Dra. R. Esteban"]: continue
+                if spot_type == 'P' and spot_idx == 1 and s in ["Dra. Busnego", "Dra. R. Esteban"]: continue
+                if spot_type == 'P' and spot_idx == 2 and s in ["Dra. Busnego", "Dr. Moreno"]: continue
+                
                 asignados.append(s)
                 if spot_type == 'HD' and s in habituales_hd: return f"✅ {s}"
                 if spot_type == 'P' and s == "Dra. Herrero": return f"🔄 {s}" 
@@ -433,9 +433,11 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
             if m not in asignados:
                 if spot_type == 'P' and m in no_pisan_planta: continue
                 if spot_type == 'HD' and m in no_pisan_hd: continue
-                if spot_type == 'P' and spot_idx in [0, 1] and m in no_pisan_p1_p2: continue
-                if spot_type == 'P' and spot_idx in [0, 2] and m in no_pisan_p1_p3: continue
+                if spot_type == 'P' and spot_idx == 0 and m in ["Dr. Moreno", "Dra. R. Esteban"]: continue
+                if spot_type == 'P' and spot_idx == 1 and m in ["Dra. Busnego", "Dra. R. Esteban"]: continue
+                if spot_type == 'P' and spot_idx == 2 and m in ["Dra. Busnego", "Dr. Moreno"]: continue
                 if is_gest(m): continue
+                
                 asignados.append(m)
                 if spot_type == 'HD' and m in habituales_hd: return f"✅ {m}"
                 if spot_type == 'P' and m == "Dra. Herrero": return f"🔄 {m}"
@@ -445,8 +447,10 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
             if m not in asignados:
                 if spot_type == 'P' and m in no_pisan_planta: continue
                 if spot_type == 'HD' and m in no_pisan_hd: continue
-                if spot_type == 'P' and spot_idx in [0, 1] and m in no_pisan_p1_p2: continue
-                if spot_type == 'P' and spot_idx in [0, 2] and m in no_pisan_p1_p3: continue
+                if spot_type == 'P' and spot_idx == 0 and m in ["Dr. Moreno", "Dra. R. Esteban"]: continue
+                if spot_type == 'P' and spot_idx == 1 and m in ["Dra. Busnego", "Dra. R. Esteban"]: continue
+                if spot_type == 'P' and spot_idx == 2 and m in ["Dra. Busnego", "Dr. Moreno"]: continue
+                
                 asignados.append(m)
                 if spot_type == 'HD' and m in habituales_hd: return f"✅ {m}"
                 if spot_type == 'P' and m == "Dra. Herrero": return f"🔄 {m}"
@@ -455,7 +459,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         return ""
 
     if dia_en in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]:
-        if hd[2] == "" and "Dra. Martín" not in asignados and dia_en != "Friday": # Friday lower priority
+        if hd[2] == "" and "Dra. Martín" not in asignados and dia_en != "Friday": 
             asignados.append("Dra. Martín")
             hd[2] = "✅ Dra. Martín" 
         if hd[1] == "" and "Dr. G. Roulston" not in asignados:
@@ -496,7 +500,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         med_text = p_hoy[movable_idx]
         med_name = med_text.replace("✅", "").replace("🔄", "").replace("🟦", "").replace("⚠️", "").split("(")[0].strip()
         
-        hd[hd_idx] = f"✅ {med_name}"
+        hd[hd_idx] = f"✅ {med_name}" if med_name in habituales_hd else f"⚖️ {med_name}"
         p_hoy[movable_idx] = "---" 
         
         p_filled = [i for i, x in enumerate(p_hoy) if x != "" and x != "---"]
@@ -510,8 +514,8 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
                 break
 
     for i in range(3):
-        if p_hoy[i] == "": p_hoy[i] = ""
-        if hd[i] == "": hd[i] = ""
+        if p_hoy[i] == "": p_hoy[i] = "❌ [VACÍO]"
+        if hd[i] == "": hd[i] = "❌ [VACÍO]"
 
     # 8. INTERCONSULTA VIRTUAL Y EXTERNA
     res["IC_Virt"] = ""
@@ -519,22 +523,19 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         if "Dra. Lorenzo" not in ausentes + salientes + bajas: 
             res["IC_Virt"] = "✅ Dra. Lorenzo"
             if "Dra. Lorenzo" not in asignados: asignados.append("Dra. Lorenzo")
-        else: res["IC_Virt"] = ""
     elif dia_en == "Wednesday":
         if "Dra. Marrero" not in ausentes + salientes + bajas: 
             res["IC_Virt"] = "✅ Dra. Marrero"
             if "Dra. Marrero" not in asignados: asignados.append("Dra. Marrero")
-        else: res["IC_Virt"] = ""
     elif dia_en == "Tuesday":
         if "Dra. Hernanz" not in ausentes + salientes + bajas:
             res["IC_Virt"] = "✅ Dra. Hernanz"
             if "Dra. Hernanz" not in asignados: asignados.append("Dra. Hernanz")
-        else: res["IC_Virt"] = ""
 
     if "Dr. R. Rull" not in ausentes + salientes + bajas:
         if "Dr. R. Rull" in asignados: res["IC_Ext"] = "✅ Dr. R. Rull (Simult.)"
         else: res["IC_Ext"] = "✅ Dr. R. Rull"; asignados.append("Dr. R. Rull")
-    else: res["IC_Ext"] = ""
+    else: res["IC_Ext"] = "❌ [VACÍO]"
 
     res["H_Dia"] = [f"HD{i+1}: {h}" for i, h in enumerate(hd) if h != "---"]
     res["Planta"] = [f"P{i+1}: {p}" for i, p in enumerate(p_hoy) if p != "---"]
@@ -624,7 +625,6 @@ if df_g is not None:
     elif modo == "Semanal":
         lunes = f_sel - timedelta(days=f_sel.weekday())
         
-        # --- NUEVO ORDEN DE EXCEL ---
         pts = [
             "P1", "P2", "P3", "P Resi", 
             "HD1", "HD2", "HD3", "HD Res", 
@@ -700,13 +700,11 @@ if df_g is not None:
                 tb["Gestión"].append(" / ".join(d["Gestion"]) if d["Gestion"] else "")
                 tb["Otras Rotaciones"].append(" / ".join(d["Resi_Otros"]) if d["Resi_Otros"] else "")
                 
-                # Contador de No Disponibles
                 total_aus = len(d["Ausentes"]) + len(bajas) + len([s for s in d.get("Saliente","").split(" / ") if s]) + len([s for s in d.get("Saliente_Resis","").split(" / ") if s])
                 tb["No Disponibles Totales"].append(str(total_aus))
 
         df = pd.DataFrame(tb, index=cols).T
         
-        # Eliminar filas completamente vacías
         for r in ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P Resi", "HD Res", "Cons Resi", "Diag Resi", "Banco Resi", "Gestión", "Otras Rotaciones", "No Disponibles Totales"]:
             if all(x == "" for x in df.loc[r]): df = df.drop(r)
         
@@ -716,24 +714,23 @@ if df_g is not None:
             wb = w.book
             ws = w.sheets['Semana']
             
-            # --- PALETA DE COLORES ---
-            bg_planta = '#E2EFDA'      # Verde Planta
-            bg_planta_r = '#F0F6EA'    # Verde Suave Resi
-            bg_hd = '#DDEBF7'          # Azul HD
-            bg_hd_r = '#EEF4FA'        # Azul Suave Resi
-            bg_cons = '#FCE4D6'        # Naranja Cons
-            bg_cons_r = '#FDF0E8'      # Naranja Suave Resi
-            bg_tao = '#FFF2CC'         # Amarillo TAO/Coag
-            bg_ped = '#FDE9D9'         # Rosa Suave Pediatria
-            bg_lab = '#E4DFEC'         # Morado Lab
-            bg_lab_r = '#F0EDF4'       # Morado Suave Resi
-            bg_banco = '#F2DCDB'       # Rojo Banco
-            bg_banco_r = '#F8EDED'     # Rojo Suave Resi
-            bg_sur = '#FFF8DC'         # Dorado Claro Sur
-            bg_ic = '#D1EEEE'          # Turquesa Interconsultas
-            bg_def = '#FFFFFF'         # Blanco
-            bg_idx = '#F2F2F2'         # Gris claro índices
-            bg_total = '#595959'       # Gris Oscuro Totales
+            bg_planta = '#E2EFDA'      
+            bg_planta_r = '#F0F6EA'    
+            bg_hd = '#DDEBF7'          
+            bg_hd_r = '#EEF4FA'        
+            bg_cons = '#FCE4D6'        
+            bg_cons_r = '#FDF0E8'      
+            bg_tao = '#FFF2CC'         
+            bg_ped = '#FDE9D9'         
+            bg_lab = '#E4DFEC'         
+            bg_lab_r = '#F8F6FA' # Diagnóstico residente aclarado    
+            bg_banco = '#F2DCDB'       
+            bg_banco_r = '#F8EDED'     
+            bg_sur = '#FFF8DC'         
+            bg_ic = '#D1EEEE'          
+            bg_def = '#FFFFFF'         
+            bg_idx = '#F2F2F2'         
+            bg_total = '#595959'       
             
             def get_row_color(r):
                 if r in ['P1', 'P2', 'P3']: return bg_planta
@@ -757,15 +754,12 @@ if df_g is not None:
             fmt_cells = {}
             fmt_index = {}
             fmt_total_val = wb.add_format({'bold': True, 'bg_color': '#D9D9D9', 'font_color': '#C00000', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
-            
-            # Formateo celdas vacías (rojo)
             fmt_vacio = wb.add_format({'bg_color': '#FFC7CE', 'font_color': '#9C0006', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
             
             for r_idx, row_name in enumerate(df.index):
                 c_bg = get_row_color(row_name)
                 i_bg = bg_idx if c_bg == bg_def else c_bg
                 
-                # Excepción para la fila de totales
                 if c_bg == bg_total:
                     i_bg_style = wb.add_format({'bold': True, 'valign': 'vcenter', 'align': 'left', 'border': 1, 'bg_color': bg_total, 'font_color': 'white'})
                 elif i_bg not in fmt_index:
@@ -782,13 +776,16 @@ if df_g is not None:
                 for c_idx, val in enumerate(df.loc[row_name]):
                     s_val = str(val).strip() if pd.notna(val) else ""
                     
+                    is_empty_cell = (s_val == "" or "VACÍO" in s_val)
+                    is_excluded_row = row_name in ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P Resi", "HD Res", "Cons Resi", "Diag Resi", "Banco Resi", "Otras Rotaciones", "Gestión"]
+                    is_ic_virt_exception = (row_name == "IC Virt" and c_idx in [0, 3]) # No pintar rojo Lunes(0) ni Jueves(3) en IC Virtual
+                    
                     if row_name == 'No Disponibles Totales':
                         ws.write(r_idx + 1, c_idx + 1, s_val, fmt_total_val)
-                    elif s_val == "" and row_name not in ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P Resi", "HD Res", "Cons Resi", "Diag Resi", "Banco Resi", "Otras Rotaciones", "Gestión"]:
-                        # Celdas vacías en estructura crítica = ROJO
-                        ws.write(r_idx + 1, c_idx + 1, s_val, fmt_vacio)
+                    elif is_empty_cell and not is_excluded_row and not is_ic_virt_exception:
+                        # Si está vacía o pone VACÍO, limpiamos texto y pintamos celda roja
+                        ws.write(r_idx + 1, c_idx + 1, "", fmt_vacio)
                     else:
-                        # Borrar la palabra VACIO si existiera y dejar solo el color
                         if "VACÍO" in s_val: s_val = ""
                         ws.write(r_idx + 1, c_idx + 1, s_val, fmt_cells[c_bg])
 
