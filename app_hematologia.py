@@ -312,9 +312,9 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         res["Saliente"] = ""; res["Saliente_Resis"] = ""
         res["Ausentes"] = []
         res["Resi_Planta"] = []; res["Resi_HD"] = []; res["Resi_Diag"] = []; res["Resi_Banco"] = []; res["Resi_Cons"] = []; res["Resi_Otros"] = []
-        for cod in ["XHEM4A", "XHEM4B", "XHEM4D", "XHEM4E", "XHEM4G", "XHEM5", "XHEM1A", "XHEM10 (Tromb.)", "XHEM11"]: res["Agendas"][cod] = ""
+        for cod in ["XHEM4A", "XHEM4B", "XHEM4D", "XHEM4E", "XHEM4G", "XHEM5", "XHEM1A", "XHEM10 (Tromb.)", "XHEM11", "XHEM"]: res["Agendas"][cod] = ""
         res["Coag"] = []; res["Sur"] = ""; res["TAO"] = ""; res["Diag"] = ["", ""]
-        res["Hem"] = ""; res["Banco"] = ["", ""]; res["IC_Ext"] = ""; res["IC_Virt"] = ""
+        res["Laboratorio"] = ""; res["Banco"] = ["", ""]; res["IC_Ext"] = ""; res["IC_Virt"] = ""
         res["Planta"] = ["🛑 FESTIVO", "🛑 FESTIVO", "🛑 FESTIVO"]
         res["H_Dia"] = ["🛑 FESTIVO", "🛑 FESTIVO", "🛑 FESTIVO"]
         res["Ped"] = ""; res["IC_Hosp"] = ""; res["Gestion"] = []
@@ -330,7 +330,10 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     disp_mont = "Dra. Montalvo" not in asignados
     res["Coag"] = []
     if disp_rios: res["Coag"].append("Dr. R. de Paz"); asignados.append("Dr. R. de Paz")
-    if disp_mont: res["Coag"].append("Dra. Montalvo"); asignados.append("Dra. Montalvo")
+    
+    # Dra. Montalvo no está los viernes en Coagulación
+    if disp_mont and dia_en != "Friday": 
+        res["Coag"].append("Dra. Montalvo"); asignados.append("Dra. Montalvo")
 
     sur_titu = {"Monday": "Dr. G. Roulston", "Tuesday": "Dra. Montalvo", "Wednesday": "Dra. Herrero", "Thursday": "Dr. De Ramos", "Friday": "Dra. R. Esteban"}.get(dia_en)
     if sur_titu == "Dra. Montalvo" and disp_mont: res["Sur"] = "✅ Dra. Montalvo"
@@ -343,9 +346,9 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         "Tuesday": [("XHEM4A", "Dra. Marrero"), ("XHEM4E", "Dr. De Ramos"), ("XHEM11", "Dr. R. de Paz"), ("XHEM1A", "Dra. Herrero")], 
         "Wednesday": [("XHEM4B", "Dra. Hernanz"), ("XHEM4D", "Dra. Martín"), ("XHEM4G", "Dra. Lorenzo"), ("XHEM10 (Tromb.)", "Dra. Montalvo")], 
         "Thursday": [("XHEM4B", "Dra. Hernanz"), ("XHEM5", "Dra. Sánchez"), ("XHEM11", "Dr. R. de Paz"), ("XHEM1A", "Dra. Herrero")], 
-        "Friday": [("XHEM4A", "Dra. Marrero"), ("XHEM4B", "Dra. Montalvo"), ("XHEM11", "Dr. R. de Paz")] # XHEM4B para Montalvo asegura que caiga en Cons 2
+        "Friday": [("XHEM4A", "Dra. Marrero"), ("XHEM", "Dra. Montalvo"), ("XHEM11", "Dr. R. de Paz")] # XHEM para Montalvo
     }
-    for cod in ["XHEM4A", "XHEM4B", "XHEM4D", "XHEM4E", "XHEM4G", "XHEM5", "XHEM1A", "XHEM10 (Tromb.)", "XHEM11"]: res["Agendas"][cod] = ""
+    for cod in ["XHEM4A", "XHEM4B", "XHEM", "XHEM4D", "XHEM4E", "XHEM4G", "XHEM5", "XHEM1A", "XHEM10 (Tromb.)", "XHEM11"]: res["Agendas"][cod] = ""
     for c, m in r_xhem.get(dia_en, []):
         if m in ["Dr. R. de Paz", "Dra. Montalvo"]: res["Agendas"][c] = f"✅ {m}" if m not in ausentes + salientes + bajas else f"❌ {m} (No disp.)"
         elif asignar(m): res["Agendas"][c] = f"✅ {m}"
@@ -380,7 +383,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
 
     # 5. LABS Y BANCO
     res["Diag"] = ["✅ Dr. Breña" if asignar("Dr. Breña") else "❌ [VACÍO]", "✅ Dra. Notario" if asignar("Dra. Notario") else "❌ [VACÍO]"]
-    res["Hem"] = "✅ Dra. Alberich" if asignar("Dra. Alberich") else "❌ [VACÍO]"
+    res["Laboratorio"] = "✅ Dra. Alberich" if asignar("Dra. Alberich") else "❌ [VACÍO]"
     res["Banco"] = ["✅ Dr. Figueroa" if asignar("Dr. Figueroa") else "❌ [VACÍO]", "✅ Dra. Peris" if asignar("Dra. Peris") else "❌ [VACÍO]"]
 
     # 6. ASIGNACIÓN ESTRICTA DE PLANTA Y HD
@@ -402,6 +405,9 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     no_pisan_planta = ["Dra. Sánchez", "Dra. Hernández", "Dra. Lorenzo", "Dr. R. Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dra. Martín"]
     no_pisan_hd = ["Dr. Moreno", "Dra. R. Esteban", "Dra. Lorenzo", "Dr. R. Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dra. Herrero"]
     
+    no_pisan_p1_p2 = ["Dra. R. Esteban"]
+    no_pisan_p1_p3 = ["Dr. Moreno"]
+
     def is_gest(m): return (dia_en=="Tuesday" and m=="Dra. Sánchez") or (dia_en=="Wednesday" and m=="Dra. Hernández")
 
     for i in range(3):
@@ -414,11 +420,8 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
             if s not in asignados:
                 if spot_type == 'P' and s in no_pisan_planta: continue
                 if spot_type == 'HD' and s in no_pisan_hd: continue
-                # Blindaje Absoluto: Moreno solo P2. R. Esteban solo P3.
-                if spot_type == 'P' and spot_idx == 0 and s in ["Dr. Moreno", "Dra. R. Esteban"]: continue
-                if spot_type == 'P' and spot_idx == 1 and s in ["Dra. Busnego", "Dra. R. Esteban"]: continue
-                if spot_type == 'P' and spot_idx == 2 and s in ["Dra. Busnego", "Dr. Moreno"]: continue
-                
+                if spot_type == 'P' and spot_idx in [0, 1] and s in no_pisan_p1_p2: continue
+                if spot_type == 'P' and spot_idx in [0, 2] and s in no_pisan_p1_p3: continue
                 asignados.append(s)
                 if spot_type == 'HD' and s in habituales_hd: return f"✅ {s}"
                 if spot_type == 'P' and s == "Dra. Herrero": return f"🔄 {s}" 
@@ -433,11 +436,9 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
             if m not in asignados:
                 if spot_type == 'P' and m in no_pisan_planta: continue
                 if spot_type == 'HD' and m in no_pisan_hd: continue
-                if spot_type == 'P' and spot_idx == 0 and m in ["Dr. Moreno", "Dra. R. Esteban"]: continue
-                if spot_type == 'P' and spot_idx == 1 and m in ["Dra. Busnego", "Dra. R. Esteban"]: continue
-                if spot_type == 'P' and spot_idx == 2 and m in ["Dra. Busnego", "Dr. Moreno"]: continue
+                if spot_type == 'P' and spot_idx in [0, 1] and m in no_pisan_p1_p2: continue
+                if spot_type == 'P' and spot_idx in [0, 2] and m in no_pisan_p1_p3: continue
                 if is_gest(m): continue
-                
                 asignados.append(m)
                 if spot_type == 'HD' and m in habituales_hd: return f"✅ {m}"
                 if spot_type == 'P' and m == "Dra. Herrero": return f"🔄 {m}"
@@ -447,10 +448,8 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
             if m not in asignados:
                 if spot_type == 'P' and m in no_pisan_planta: continue
                 if spot_type == 'HD' and m in no_pisan_hd: continue
-                if spot_type == 'P' and spot_idx == 0 and m in ["Dr. Moreno", "Dra. R. Esteban"]: continue
-                if spot_type == 'P' and spot_idx == 1 and m in ["Dra. Busnego", "Dra. R. Esteban"]: continue
-                if spot_type == 'P' and spot_idx == 2 and m in ["Dra. Busnego", "Dr. Moreno"]: continue
-                
+                if spot_type == 'P' and spot_idx in [0, 1] and m in no_pisan_p1_p2: continue
+                if spot_type == 'P' and spot_idx in [0, 2] and m in no_pisan_p1_p3: continue
                 asignados.append(m)
                 if spot_type == 'HD' and m in habituales_hd: return f"✅ {m}"
                 if spot_type == 'P' and m == "Dra. Herrero": return f"🔄 {m}"
@@ -537,11 +536,9 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         else: res["IC_Ext"] = "✅ Dr. R. Rull"; asignados.append("Dr. R. Rull")
     else: res["IC_Ext"] = "❌ [VACÍO]"
 
-    res["H_Dia"] = [f"HD{i+1}: {h}" for i, h in enumerate(hd) if h != "---"]
-    res["Planta"] = [f"P{i+1}: {p}" for i, p in enumerate(p_hoy) if p != "---"]
-    
-    while len(res["Planta"]) < 3: res["Planta"].append("---")
-    while len(res["H_Dia"]) < 3: res["H_Dia"].append("---")
+    # Al no filtrar por != "---" mantenemos siempre la longitud de 3 para P1, P2 y P3 en sus posiciones correctas
+    res["H_Dia"] = [f"HD{i+1}: {h}" for i, h in enumerate(hd)]
+    res["Planta"] = [f"P{i+1}: {p}" for i, p in enumerate(p_hoy)]
         
     res["Gestion"] = [m for m in plantilla if m not in asignados]
     return res
@@ -590,7 +587,7 @@ if df_g is not None:
                 st.divider()
                 st.subheader("🔬 Lab")
                 for x in d["Diag"]: st.markdown(x)
-                st.markdown(f"**Hem:** {d['Hem']}")
+                st.markdown(f"**Laboratorio:** {d['Laboratorio']}")
                 if d["Resi_Diag"]: st.markdown(f"**Diag Resi:** {', '.join(d['Resi_Diag'])}")
                 st.divider()
                 st.subheader("🩸 Banco")
@@ -631,7 +628,7 @@ if df_g is not None:
             "Cons 1", "Cons 2", "Cons 3", "Cons Resi", 
             "Coagulación", "TAO", 
             "Pediatría", 
-            "Diag 1", "Diag 2", "Diag Resi", "Hem", 
+            "Diag 1", "Diag 2", "Laboratorio", "Diag Resi", 
             "Banco 1", "Banco 2", "Banco Resi", 
             "Sur", 
             "IC Hosp", "IC Virt", "IC Ext", 
@@ -688,8 +685,9 @@ if df_g is not None:
                 tb["TAO"].append(c(d["TAO"]))
                 tb["Diag 1"].append(c(d["Diag"][0]))
                 tb["Diag 2"].append(c(d["Diag"][1]))
+                tb["Laboratorio"].append(c(d["Laboratorio"]))
                 tb["Diag Resi"].append(" / ".join(d["Resi_Diag"]) if d["Resi_Diag"] else "")
-                tb["Hem"].append(c(d["Hem"]))
+                tb["Hem"].append(c(d["Hem"])) if "Hem" in d else None
                 tb["Banco 1"].append(c(d["Banco"][0]))
                 tb["Banco 2"].append(c(d["Banco"][1]))
                 tb["Banco Resi"].append(" / ".join(d["Resi_Banco"]) if d["Resi_Banco"] else "")
@@ -705,8 +703,8 @@ if df_g is not None:
 
         df = pd.DataFrame(tb, index=cols).T
         
-        for r in ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P Resi", "HD Res", "Cons Resi", "Diag Resi", "Banco Resi", "Gestión", "Otras Rotaciones", "No Disponibles Totales"]:
-            if all(x == "" for x in df.loc[r]): df = df.drop(r)
+        for r in ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P Resi", "HD Res", "Cons Resi", "Diag Resi", "Banco Resi", "Gestión", "Otras Rotaciones", "No Disponibles Totales", "Hem"]:
+            if r in df.index and all(x == "" for x in df.loc[r]): df = df.drop(r)
         
         b = io.BytesIO()
         with pd.ExcelWriter(b, engine='xlsxwriter') as w: 
@@ -741,7 +739,7 @@ if df_g is not None:
                 if r == 'Cons Resi': return bg_cons_r
                 if r in ['Coagulación', 'TAO']: return bg_tao
                 if r == 'Pediatría': return bg_ped
-                if str(r).startswith('Diag') or str(r).startswith('Hem'): return bg_lab
+                if str(r).startswith('Diag') or r == 'Laboratorio': return bg_lab
                 if r == 'Diag Resi': return bg_lab_r
                 if str(r).startswith('Banco') and 'Res' not in r: return bg_banco
                 if r == 'Banco Resi': return bg_banco_r
@@ -778,12 +776,12 @@ if df_g is not None:
                     
                     is_empty_cell = (s_val == "" or "VACÍO" in s_val)
                     is_excluded_row = row_name in ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P Resi", "HD Res", "Cons Resi", "Diag Resi", "Banco Resi", "Otras Rotaciones", "Gestión"]
-                    is_ic_virt_exception = (row_name == "IC Virt" and c_idx in [0, 3]) # No pintar rojo Lunes(0) ni Jueves(3) en IC Virtual
+                    # Lunes (0) y Jueves (3) en IC Virtual están justificados que estén vacíos
+                    is_ic_virt_exception = (row_name == "IC Virt" and c_idx in [0, 3]) 
                     
                     if row_name == 'No Disponibles Totales':
                         ws.write(r_idx + 1, c_idx + 1, s_val, fmt_total_val)
                     elif is_empty_cell and not is_excluded_row and not is_ic_virt_exception:
-                        # Si está vacía o pone VACÍO, limpiamos texto y pintamos celda roja
                         ws.write(r_idx + 1, c_idx + 1, "", fmt_vacio)
                     else:
                         if "VACÍO" in s_val: s_val = ""
