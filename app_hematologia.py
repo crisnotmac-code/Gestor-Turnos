@@ -4,6 +4,8 @@ from datetime import datetime, timedelta
 import io
 import re
 import os
+import smtplib
+from email.message import EmailMessage
 
 st.set_page_config(page_title="Gestor Hematología 2026", layout="wide")
 st.markdown("""<style>@media print { header, [data-testid="stSidebar"], [data-testid="stToolbar"] { display: none !important; } .main { max-width: 100% !important; padding: 0 !important; } @page { size: landscape; margin: 1cm; } }</style>""", unsafe_allow_html=True)
@@ -341,7 +343,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         "Tuesday": [("XHEM4A", "Dra. Marrero"), ("XHEM4E", "Dr. De Ramos"), ("XHEM11", "Dr. R. de Paz"), ("XHEM1A", "Dra. Herrero")], 
         "Wednesday": [("XHEM4B", "Dra. Hernanz"), ("XHEM4D", "Dra. Martín"), ("XHEM4G", "Dra. Lorenzo"), ("XHEM10 (Tromb.)", "Dra. Montalvo")], 
         "Thursday": [("XHEM4B", "Dra. Hernanz"), ("XHEM5", "Dra. Sánchez"), ("XHEM11", "Dr. R. de Paz"), ("XHEM1A", "Dra. Herrero")], 
-        "Friday": [("XHEM4A", "Dra. Marrero"), ("XHEM11", "Dr. R. de Paz")]
+        "Friday": [("XHEM4A", "Dra. Marrero"), ("XHEM11", "Dr. R. de Paz"), ("XHEM10 (Tromb.)", "Dra. Montalvo")]
     }
     for cod in ["XHEM4A", "XHEM4B", "XHEM4D", "XHEM4E", "XHEM4G", "XHEM5", "XHEM1A", "XHEM10 (Tromb.)", "XHEM11"]: res["Agendas"][cod] = ""
     for c, m in r_xhem.get(dia_en, []):
@@ -349,7 +351,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         elif asignar(m): res["Agendas"][c] = f"✅ {m}"
         else: res["Agendas"][c] = f"❌ {m} (No disp.)"
 
-    # 3. TAO (ACO)
+    # 3. TAO (ACO) 
     tao_assigned = []
     if dia_en in ["Monday"] and disp_mont:
         tao_assigned.append("✅ Dra. Montalvo")
@@ -389,16 +391,17 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     hd_titu = [
         {"Monday": "Dra. Sánchez", "Tuesday": "Dr. R. Rull", "Wednesday": "Dra. Sánchez", "Friday": "Dra. Sánchez"}.get(dia_en),
         {"Monday": "Dra. Hernández", "Tuesday": "Dra. Hernández", "Thursday": "Dra. Hernández", "Friday": "Dra. Hernández"}.get(dia_en),
-        {"Thursday": "Dra. Martín"}.get(dia_en)
+        {"Monday": "Dra. Martín", "Tuesday": "Dra. Martín", "Thursday": "Dra. Martín"}.get(dia_en)
     ]
     
-    p_sust = ["Dr. De Ramos", "Dra. Herrero"]
-    hd_sust = ["Dra. Martín", "Dr. G. Roulston", "Dr. De Ramos"] 
+    p_sust = ["Dra. Herrero", "Dr. De Ramos", "Dr. G. Roulston"]
+    hd_sust = ["Dr. De Ramos", "Dr. G. Roulston", "Dra. Martín"] # Martín baja prioridad en viernes
 
     habituales_hd = ["Dra. Sánchez", "Dra. Hernández", "Dr. De Ramos", "Dra. Martín", "Dr. R. Rull", "Dr. G. Roulston"]
 
-    no_pisan_planta = ["Dra. Sánchez", "Dra. Hernández", "Dra. Lorenzo", "Dr. R. Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dr. G. Roulston", "Dra. Martín"]
+    no_pisan_planta = ["Dra. Sánchez", "Dra. Hernández", "Dra. Lorenzo", "Dr. R. Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dra. Martín"]
     no_pisan_hd = ["Dr. Moreno", "Dra. R. Esteban", "Dra. Lorenzo", "Dr. R. Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dra. Herrero"]
+    
     no_pisan_p1_p2 = ["Dra. R. Esteban"]
     no_pisan_p1_p3 = ["Dr. Moreno"]
 
@@ -452,7 +455,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         return ""
 
     if dia_en in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]:
-        if hd[2] == "" and "Dra. Martín" not in asignados:
+        if hd[2] == "" and "Dra. Martín" not in asignados and dia_en != "Friday": # Friday lower priority
             asignados.append("Dra. Martín")
             hd[2] = "✅ Dra. Martín" 
         if hd[1] == "" and "Dr. G. Roulston" not in asignados:
@@ -507,8 +510,8 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
                 break
 
     for i in range(3):
-        if p_hoy[i] == "": p_hoy[i] = "❌ [VACÍO]"
-        if hd[i] == "": hd[i] = "❌ [VACÍO]"
+        if p_hoy[i] == "": p_hoy[i] = ""
+        if hd[i] == "": hd[i] = ""
 
     # 8. INTERCONSULTA VIRTUAL Y EXTERNA
     res["IC_Virt"] = ""
@@ -516,27 +519,28 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         if "Dra. Lorenzo" not in ausentes + salientes + bajas: 
             res["IC_Virt"] = "✅ Dra. Lorenzo"
             if "Dra. Lorenzo" not in asignados: asignados.append("Dra. Lorenzo")
-        elif "Dr. R. Rull" not in ausentes + salientes + bajas: res["IC_Virt"] = "✅ Dr. R. Rull (Simult.)"
-        else: res["IC_Virt"] = "❌ [VACÍO]"
+        else: res["IC_Virt"] = ""
     elif dia_en == "Wednesday":
-        if "Dr. R. Rull" not in ausentes + salientes + bajas: res["IC_Virt"] = "✅ Dr. R. Rull (Simult.)"
-        else: res["IC_Virt"] = "❌ [VACÍO]"
+        if "Dra. Marrero" not in ausentes + salientes + bajas: 
+            res["IC_Virt"] = "✅ Dra. Marrero"
+            if "Dra. Marrero" not in asignados: asignados.append("Dra. Marrero")
+        else: res["IC_Virt"] = ""
     elif dia_en == "Tuesday":
         if "Dra. Hernanz" not in ausentes + salientes + bajas:
             res["IC_Virt"] = "✅ Dra. Hernanz"
             if "Dra. Hernanz" not in asignados: asignados.append("Dra. Hernanz")
-        else: res["IC_Virt"] = "❌ [VACÍO]"
+        else: res["IC_Virt"] = ""
 
     if "Dr. R. Rull" not in ausentes + salientes + bajas:
         if "Dr. R. Rull" in asignados: res["IC_Ext"] = "✅ Dr. R. Rull (Simult.)"
         else: res["IC_Ext"] = "✅ Dr. R. Rull"; asignados.append("Dr. R. Rull")
-    else: res["IC_Ext"] = "❌ [VACÍO]"
+    else: res["IC_Ext"] = ""
 
-    res["H_Dia"] = [f"HD{i+1}: {h}" for i, h in enumerate(hd) if h != ""]
+    res["H_Dia"] = [f"HD{i+1}: {h}" for i, h in enumerate(hd) if h != "---"]
     res["Planta"] = [f"P{i+1}: {p}" for i, p in enumerate(p_hoy) if p != "---"]
     
-    while len(res["Planta"]) < 3:
-        res["Planta"].append("---")
+    while len(res["Planta"]) < 3: res["Planta"].append("---")
+    while len(res["H_Dia"]) < 3: res["H_Dia"].append("---")
         
     res["Gestion"] = [m for m in plantilla if m not in asignados]
     return res
@@ -619,7 +623,23 @@ if df_g is not None:
 
     elif modo == "Semanal":
         lunes = f_sel - timedelta(days=f_sel.weekday())
-        pts = ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P1", "P2", "P3", "P Resi", "HD1", "HD2", "HD3", "HD Res", "Cons 1", "Cons 2", "Cons 3", "Cons Resi", "Coagulación", "Sur", "TAO", "Diag 1", "Diag 2", "Diag Resi", "Hem", "Banco 1", "Banco 2", "Banco Resi", "IC Hosp", "IC Virt", "IC Ext", "Pediatría", "Gestión", "Otras Rotaciones"]
+        
+        # --- NUEVO ORDEN DE EXCEL ---
+        pts = [
+            "P1", "P2", "P3", "P Resi", 
+            "HD1", "HD2", "HD3", "HD Res", 
+            "Cons 1", "Cons 2", "Cons 3", "Cons Resi", 
+            "Coagulación", "TAO", 
+            "Pediatría", 
+            "Diag 1", "Diag 2", "Diag Resi", "Hem", 
+            "Banco 1", "Banco 2", "Banco Resi", 
+            "Sur", 
+            "IC Hosp", "IC Virt", "IC Ext", 
+            "Guardia", "Guardia_Resis", 
+            "Saliente", "Sal_Resis", "Ausentes", 
+            "Gestión", "Otras Rotaciones", "No Disponibles Totales"
+        ]
+        
         tb = {p: [] for p in pts}
         cols = []
         for i in range(5):
@@ -630,7 +650,11 @@ if df_g is not None:
             tb["Guardia_Resis"].append(d.get("Guardia_Resis", ""))
             
             if d.get("Es_Festivo"):
-                for p in pts[2:]: tb[p].append("🛑 FESTIVO" if p not in ["Saliente", "Sal_Resis", "Ausentes", "P Resi", "HD Res", "Cons Resi", "Diag Resi", "Banco Resi", "Otras Rotaciones"] else "")
+                for p in pts: 
+                    if p not in ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P Resi", "HD Res", "Cons Resi", "Diag Resi", "Banco Resi", "Otras Rotaciones", "No Disponibles Totales"]:
+                        tb[p].append("🛑 FESTIVO")
+                    elif p not in ["Guardia", "Guardia_Resis"]: tb[p].append("")
+                tb["No Disponibles Totales"][-1] = ""
             else:
                 nrms = []
                 for cod, m in d["Agendas"].items():
@@ -640,7 +664,9 @@ if df_g is not None:
                 while len(nrms) < 3: nrms.append("")
                 
                 def c(v): return v.replace("✅ ","").replace("🟦 ","").replace("⚠️ ","").replace("❗ ","").replace("⚖️ ","⚖️ ")
-                def g(l, x): return c(l[x].split(": ")[1] if len(l)>x and ": " in l[x] else "")
+                def g(l, x): 
+                    if len(l) > x and ": " in l[x]: return c(l[x].split(": ")[1])
+                    return ""
                 
                 tb["Saliente"].append(d.get("Saliente", ""))
                 tb["Sal_Resis"].append(d.get("Saliente_Resis", ""))
@@ -673,9 +699,15 @@ if df_g is not None:
                 tb["Pediatría"].append(c(d["Ped"]))
                 tb["Gestión"].append(" / ".join(d["Gestion"]) if d["Gestion"] else "")
                 tb["Otras Rotaciones"].append(" / ".join(d["Resi_Otros"]) if d["Resi_Otros"] else "")
-            
+                
+                # Contador de No Disponibles
+                total_aus = len(d["Ausentes"]) + len(bajas) + len([s for s in d.get("Saliente","").split(" / ") if s]) + len([s for s in d.get("Saliente_Resis","").split(" / ") if s])
+                tb["No Disponibles Totales"].append(str(total_aus))
+
         df = pd.DataFrame(tb, index=cols).T
-        for r in ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P Resi", "HD Res", "Cons Resi", "Diag Resi", "Banco Resi", "Gestión", "Otras Rotaciones"]:
+        
+        # Eliminar filas completamente vacías
+        for r in ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P Resi", "HD Res", "Cons Resi", "Diag Resi", "Banco Resi", "Gestión", "Otras Rotaciones", "No Disponibles Totales"]:
             if all(x == "" for x in df.loc[r]): df = df.drop(r)
         
         b = io.BytesIO()
@@ -684,41 +716,81 @@ if df_g is not None:
             wb = w.book
             ws = w.sheets['Semana']
             
-            # --- COLORES POR BLOQUES ---
-            bg_planta = '#E2EFDA' # Verde
-            bg_hd = '#DDEBF7'     # Azul
-            bg_cons = '#FCE4D6'   # Naranja
-            bg_tao = '#FFF2CC'    # Amarillo
-            bg_lab = '#E4DFEC'    # Morado
-            bg_ic = '#F2DCDB'     # Rojo claro
-            bg_def = '#FFFFFF'    # Blanco
-            bg_idx = '#F2F2F2'    # Gris claro
+            # --- PALETA DE COLORES ---
+            bg_planta = '#E2EFDA'      # Verde Planta
+            bg_planta_r = '#F0F6EA'    # Verde Suave Resi
+            bg_hd = '#DDEBF7'          # Azul HD
+            bg_hd_r = '#EEF4FA'        # Azul Suave Resi
+            bg_cons = '#FCE4D6'        # Naranja Cons
+            bg_cons_r = '#FDF0E8'      # Naranja Suave Resi
+            bg_tao = '#FFF2CC'         # Amarillo TAO/Coag
+            bg_ped = '#FDE9D9'         # Rosa Suave Pediatria
+            bg_lab = '#E4DFEC'         # Morado Lab
+            bg_lab_r = '#F0EDF4'       # Morado Suave Resi
+            bg_banco = '#F2DCDB'       # Rojo Banco
+            bg_banco_r = '#F8EDED'     # Rojo Suave Resi
+            bg_sur = '#FFF8DC'         # Dorado Claro Sur
+            bg_ic = '#D1EEEE'          # Turquesa Interconsultas
+            bg_def = '#FFFFFF'         # Blanco
+            bg_idx = '#F2F2F2'         # Gris claro índices
+            bg_total = '#595959'       # Gris Oscuro Totales
             
             def get_row_color(r):
-                if r in ['P1', 'P2', 'P3', 'P Resi']: return bg_planta
-                if str(r).startswith('HD'): return bg_hd
-                if str(r).startswith('Cons'): return bg_cons
-                if r in ['Coagulación', 'Sur', 'TAO']: return bg_tao
-                if str(r).startswith('Diag') or str(r).startswith('Hem') or str(r).startswith('Banco'): return bg_lab
-                if str(r).startswith('IC ') or r == 'Pediatría': return bg_ic
+                if r in ['P1', 'P2', 'P3']: return bg_planta
+                if r == 'P Resi': return bg_planta_r
+                if str(r).startswith('HD') and 'Res' not in r: return bg_hd
+                if r == 'HD Res': return bg_hd_r
+                if str(r).startswith('Cons') and 'Res' not in r: return bg_cons
+                if r == 'Cons Resi': return bg_cons_r
+                if r in ['Coagulación', 'TAO']: return bg_tao
+                if r == 'Pediatría': return bg_ped
+                if str(r).startswith('Diag') or str(r).startswith('Hem'): return bg_lab
+                if r == 'Diag Resi': return bg_lab_r
+                if str(r).startswith('Banco') and 'Res' not in r: return bg_banco
+                if r == 'Banco Resi': return bg_banco_r
+                if r == 'Sur': return bg_sur
+                if str(r).startswith('IC '): return bg_ic
+                if r == 'No Disponibles Totales': return bg_total
                 return bg_def
 
             fmt_cabecera = wb.add_format({'bold': True, 'bg_color': '#D9E1F2', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
             fmt_cells = {}
             fmt_index = {}
+            fmt_total_val = wb.add_format({'bold': True, 'bg_color': '#D9D9D9', 'font_color': '#C00000', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
+            
+            # Formateo celdas vacías (rojo)
+            fmt_vacio = wb.add_format({'bg_color': '#FFC7CE', 'font_color': '#9C0006', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
             
             for r_idx, row_name in enumerate(df.index):
                 c_bg = get_row_color(row_name)
                 i_bg = bg_idx if c_bg == bg_def else c_bg
                 
-                if c_bg not in fmt_cells:
-                    fmt_cells[c_bg] = wb.add_format({'text_wrap': True, 'valign': 'vcenter', 'align': 'center', 'border': 1, 'bg_color': c_bg})
-                if i_bg not in fmt_index:
+                # Excepción para la fila de totales
+                if c_bg == bg_total:
+                    i_bg_style = wb.add_format({'bold': True, 'valign': 'vcenter', 'align': 'left', 'border': 1, 'bg_color': bg_total, 'font_color': 'white'})
+                elif i_bg not in fmt_index:
                     fmt_index[i_bg] = wb.add_format({'bold': True, 'valign': 'vcenter', 'align': 'left', 'border': 1, 'bg_color': i_bg})
+                    i_bg_style = fmt_index[i_bg]
+                else:
+                    i_bg_style = fmt_index[i_bg]
+                    
+                if c_bg not in fmt_cells and c_bg != bg_total:
+                    fmt_cells[c_bg] = wb.add_format({'text_wrap': True, 'valign': 'vcenter', 'align': 'center', 'border': 1, 'bg_color': c_bg})
                 
-                ws.write(r_idx + 1, 0, row_name, fmt_index[i_bg])
+                ws.write(r_idx + 1, 0, row_name, i_bg_style)
+                
                 for c_idx, val in enumerate(df.loc[row_name]):
-                    ws.write(r_idx + 1, c_idx + 1, str(val) if pd.notna(val) else "", fmt_cells[c_bg])
+                    s_val = str(val).strip() if pd.notna(val) else ""
+                    
+                    if row_name == 'No Disponibles Totales':
+                        ws.write(r_idx + 1, c_idx + 1, s_val, fmt_total_val)
+                    elif s_val == "" and row_name not in ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P Resi", "HD Res", "Cons Resi", "Diag Resi", "Banco Resi", "Otras Rotaciones", "Gestión"]:
+                        # Celdas vacías en estructura crítica = ROJO
+                        ws.write(r_idx + 1, c_idx + 1, s_val, fmt_vacio)
+                    else:
+                        # Borrar la palabra VACIO si existiera y dejar solo el color
+                        if "VACÍO" in s_val: s_val = ""
+                        ws.write(r_idx + 1, c_idx + 1, s_val, fmt_cells[c_bg])
 
             ws.set_column(0, 0, 20)
             ws.set_column(1, len(df.columns), 28)
@@ -728,7 +800,12 @@ if df_g is not None:
             ws.write(0, 0, "", fmt_cabecera)
             
         st.table(df)
-        st.download_button("📥 Descargar Excel Semana", b.getvalue(), f"Sem_{lunes.strftime('%d%m')}.xlsx", "application/vnd.ms-excel")
+        
+        c_down, c_mail = st.columns(2)
+        with c_down:
+            st.download_button("📥 Descargar Excel Semana", b.getvalue(), f"Sem_{lunes.strftime('%d%m')}.xlsx", "application/vnd.ms-excel")
+        with c_mail:
+            st.markdown("📩 Configura Streamlit Secrets para habilitar el envío automático por correo.")
 
     elif modo == "Mensual":
         ms = st.sidebar.selectbox("Médico:", plantilla)
