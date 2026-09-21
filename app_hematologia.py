@@ -11,7 +11,7 @@ st.set_page_config(page_title="Gestor Hematología 2026", layout="wide")
 st.markdown("""<style>@media print { header, [data-testid="stSidebar"], [data-testid="stToolbar"] { display: none !important; } .main { max-width: 100% !important; padding: 0 !important; } @page { size: landscape; margin: 1cm; } }</style>""", unsafe_allow_html=True)
 
 # Lista Maestra Adjuntos
-plantilla = ["Dra. Busnego", "Dr. Moreno", "Dra. Sánchez", "Dra. Hernández", "Dra. Martín", "Dra. Alberich", "Dr. Breña", "Dra. Notario", "Dr. Figueroa", "Dra. Peris", "Dra. Montalvo", "Dr. R. de Paz", "Dra. Herrero", "Dra. Lorenzo", "Dra. R. Esteban", "Dra. Hernanz", "Dra. Marrero", "Dr. González", "Dr. G. Roulston", "Dr. R. Rull", "Dr. De Ramos"]
+plantilla = ["Dra. Busnego", "Dr. Moreno", "Dra. Sánchez", "Dra. Hernández", "Dra. Martín", "Dra. Alberich", "Dr. Breña", "Dra. Notario", "Dr. Figueroa", "Dra. Peris", "Dra. Montalvo", "Dr. R. de Paz", "Dra. Herrero", "Dra. Lorenzo", "Dra. R. Esteban", "Dra. Hernanz", "Dra. Marrero", "Dr. González", "Dr. G. Roulston", "Dr. Ríos Rull", "Dr. De Ramos"]
 
 meses_es_str = {"ENERO":1, "FEBRERO":2, "MARZO":3, "ABRIL":4, "MAYO":5, "JUNIO":6, "JULIO":7, "AGOSTO":8, "SEPTIEMBRE":9, "OCTUBRE":10, "NOVIEMBRE":11, "DICIEMBRE":12}
 meses_es = {1:"ENERO", 2:"FEBRERO", 3:"MARZO", 4:"ABRIL", 5:"MAYO", 6:"JUNIO", 7:"JULIO", 8:"AGOSTO", 9:"SEPTIEMBRE", 10:"OCTUBRE", 11:"NOVIEMBRE", 12:"DICIEMBRE"}
@@ -51,7 +51,7 @@ def match_medico(nombre_texto, med):
     if "CLIMENT" in nt and "GONZALEZ" in mt: return False
     
     if med == "Dr. R. de Paz": return ("PAZ" in nt) or (("RIOS" in nt or "PABLO" in nt) and "RULL" not in nt)
-    if med == "Dr. R. Rull": return "RULL" in nt
+    if med == "Dr. Ríos Rull": return "RULL" in nt
     if med == "Dr. G. Roulston": return "ROULSTON" in nt or "KEVIN" in nt
     if med == "Dra. R. Esteban": return "RODRIGUEZ" in nt and "SANTOS" not in nt and "RUBIO" not in nt
     if med == "Dr. De Ramos": return "RAMOS" in nt
@@ -397,142 +397,112 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     res["Laboratorio"] = "✅ Dra. Alberich" if asignar("Dra. Alberich") else "❌ [VACÍO]"
     res["Banco"] = ["✅ Dr. Figueroa" if asignar("Dr. Figueroa") else "❌ [VACÍO]", "✅ Dra. Peris" if asignar("Dra. Peris") else "❌ [VACÍO]"]
 
-    # 6. ASIGNACIÓN ESTRICTA DE PLANTA Y HD
+    # =========================================================================
+    # 6. ASIGNACIÓN ESTRICTA DE PLANTA Y HOSPITAL DE DÍA (MATRICES EXACTAS)
+    # =========================================================================
     p_hoy = ["", "", ""]
     hd = ["", "", ""]
     
     p_titu = ["Dra. Busnego", "Dr. Moreno", "Dra. R. Esteban"]
+    
     hd_titu = [
-        {"Monday": "Dra. Sánchez", "Tuesday": "Dr. R. Rull", "Wednesday": "Dra. Sánchez", "Friday": "Dra. Sánchez"}.get(dia_en),
-        {"Monday": "Dra. Hernández", "Tuesday": "Dra. Hernández", "Thursday": "Dra. Hernández", "Friday": "Dra. Hernández"}.get(dia_en),
-        {"Monday": "Dra. Martín", "Tuesday": "Dra. Martín", "Thursday": "Dra. Martín"}.get(dia_en)
+        {"Monday": "Dra. Sánchez", "Tuesday": "Dr. Ríos Rull", "Wednesday": "Dra. Sánchez", "Thursday": "Dr. G. Roulston", "Friday": "Dra. Sánchez"}.get(dia_en),
+        {"Monday": "Dra. Hernández", "Tuesday": "Dra. Hernández", "Wednesday": "Dr. De Ramos", "Thursday": "Dra. Hernández", "Friday": "Dra. Hernández"}.get(dia_en),
+        {"Monday": "Dra. Martín", "Tuesday": "Dra. Martín", "Wednesday": "Dr. G. Roulston", "Thursday": "Dra. Martín", "Friday": "Dr. G. Roulston"}.get(dia_en)
     ]
     
-    p_sust = ["Dra. Herrero", "Dr. G. Roulston", "Dr. De Ramos"] # Preferencia G. Roulston para Planta
-    hd_sust = ["Dr. De Ramos", "Dr. G. Roulston", "Dra. Martín"] 
-
-    habituales_hd = ["Dra. Sánchez", "Dra. Hernández", "Dr. De Ramos", "Dra. Martín", "Dr. R. Rull", "Dr. G. Roulston"]
-
-    no_pisan_planta = ["Dra. Sánchez", "Dra. Hernández", "Dra. Lorenzo", "Dr. R. Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dra. Martín", "Dra. Montalvo"]
-    no_pisan_hd = ["Dr. Moreno", "Dra. R. Esteban", "Dra. Lorenzo", "Dr. R. Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dra. Herrero", "Dra. Montalvo"]
+    habituales_hd = ["Dra. Sánchez", "Dra. Hernández", "Dr. De Ramos", "Dra. Martín", "Dr. Ríos Rull", "Dr. G. Roulston"]
+    no_pisan_planta = ["Dra. Sánchez", "Dra. Hernández", "Dra. Lorenzo", "Dr. Ríos Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dra. Martín", "Dra. Montalvo"]
+    no_pisan_hd = ["Dr. Moreno", "Dra. R. Esteban", "Dra. Lorenzo", "Dr. Ríos Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dra. Herrero", "Dra. Montalvo"]
     
     no_pisan_p1_p2 = ["Dra. R. Esteban"]
     no_pisan_p1_p3 = ["Dr. Moreno"]
 
-    def is_gest(m): return (dia_en=="Tuesday" and m=="Dra. Sánchez") or (dia_en=="Wednesday" and m=="Dra. Hernández")
+    def is_gest(m): return (dia_en=="Tuesday" and m=="Dra. Sánchez") or (dia_en=="Wednesday" and m=="Dra. Hernández") or (dia_en=="Friday" and m=="Dra. Martín")
 
+    # 6.1 ASIGNAR TITULARES DE PLANTA Y HD
     for i in range(3):
         if hd_titu[i] and asignar(hd_titu[i]): hd[i] = f"✅ {hd_titu[i]}"
     for i in range(3):
         if p_titu[i] and asignar(p_titu[i]): p_hoy[i] = f"✅ {p_titu[i]}"
 
-    def fill_spot(spot_type, spot_idx, sust_list):
-        for s in sust_list:
-            if s not in asignados:
-                if spot_type == 'P' and s in no_pisan_planta: continue
-                if spot_type == 'HD' and s in no_pisan_hd: continue
-                if spot_type == 'P' and spot_idx in [0, 1] and s in no_pisan_p1_p2: continue
-                if spot_type == 'P' and spot_idx in [0, 2] and s in no_pisan_p1_p3: continue
-                asignados.append(s)
-                if spot_type == 'HD' and s in habituales_hd: return f"✅ {s}"
-                if spot_type == 'P' and s == "Dra. Herrero": return f"🔄 {s}" 
-                return f"🔄 {s}"
-        
-        if spot_type == 'HD':
-            hd_gest = {"Tuesday": "Dra. Sánchez", "Wednesday": "Dra. Hernández"}.get(dia_en)
-            if hd_gest and hd_gest not in asignados:
-                asignados.append(hd_gest); return f"⚠️ {hd_gest} (Gestión rota)"
-        
-        for m in plantilla:
-            if m not in asignados:
-                if spot_type == 'P' and m in no_pisan_planta: continue
-                if spot_type == 'HD' and m in no_pisan_hd: continue
-                if spot_type == 'P' and spot_idx in [0, 1] and m in no_pisan_p1_p2: continue
-                if spot_type == 'P' and spot_idx in [0, 2] and m in no_pisan_p1_p3: continue
-                if is_gest(m): continue
-                asignados.append(m)
-                if spot_type == 'HD' and m in habituales_hd: return f"✅ {m}"
-                if spot_type == 'P' and m == "Dra. Herrero": return f"🔄 {m}"
-                return f"🟦 {m}"
-                
-        for m in plantilla:
-            if m not in asignados:
-                if spot_type == 'P' and m in no_pisan_planta: continue
-                if spot_type == 'HD' and m in no_pisan_hd: continue
-                if spot_type == 'P' and spot_idx in [0, 1] and m in no_pisan_p1_p2: continue
-                if spot_type == 'P' and spot_idx in [0, 2] and m in no_pisan_p1_p3: continue
-                asignados.append(m)
-                if spot_type == 'HD' and m in habituales_hd: return f"✅ {m}"
-                if spot_type == 'P' and m == "Dra. Herrero": return f"🔄 {m}"
-                return f"⚠️ {m} (Gestión)"
-                
-        return ""
+    # 6.2 EL TRADE DEL MIÉRCOLES (Rescate especial para Planta)
+    if dia_en == "Wednesday":
+        if any(p == "" for p in p_hoy) and "✅ Dr. G. Roulston" in hd:
+            if "Dra. Herrero" in asignados: 
+                if "Dra. Hernández" not in asignados:
+                    idx = hd.index("✅ Dr. G. Roulston")
+                    hd[idx] = "⚠️ Dra. Hernández (Gestión rota)"
+                    asignados.remove("Dr. G. Roulston")
+                    asignados.append("Dra. Hernández")
 
-    if dia_en in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]:
-        if hd[2] == "" and "Dra. Martín" not in asignados and dia_en != "Friday": 
-            asignados.append("Dra. Martín")
-            hd[2] = "✅ Dra. Martín" 
-        if hd[1] == "" and "Dr. G. Roulston" not in asignados:
-            asignados.append("Dr. G. Roulston")
-            hd[1] = "✅ Dr. G. Roulston" 
-
-    if p_hoy[0] == "": p_hoy[0] = fill_spot('P', 0, p_sust)
-    if p_hoy[1] == "": p_hoy[1] = fill_spot('P', 1, p_sust)
-    
-    if dia_en in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]:
-        if hd[0] == "": hd[0] = fill_spot('HD', 0, hd_sust)
-        if hd[1] == "": hd[1] = fill_spot('HD', 1, hd_sust)
-        if hd[2] == "": hd[2] = fill_spot('HD', 2, hd_sust)
-
-    if p_hoy[2] == "":
-        hd_lleno = all(h != "" for h in hd[:3])
-        if hd_lleno: 
-            p_hoy[2] = fill_spot('P', 2, p_sust)
-
-    p_filled = [i for i, x in enumerate(p_hoy) if x != ""]
-    hd_filled = [i for i, x in enumerate(hd[:3]) if x != ""]
-    
-    while len(p_filled) > len(hd_filled):
-        movable_idx = None
-        for idx in [2, 0, 1]:
-            if p_hoy[idx] != "":
-                med_name = p_hoy[idx].replace("✅", "").replace("🔄", "").replace("🟦", "").replace("⚠️", "").split("(")[0].strip()
-                if med_name not in ["Dr. Moreno", "Dra. R. Esteban", "Dra. Busnego", "Dra. Herrero"]:
-                    movable_idx = idx
-                    break
-        
-        if movable_idx is None: break 
-        
-        free_hd = [i for i in range(3) if i not in hd_filled]
-        if not free_hd: break
-        
-        hd_idx = free_hd[0]
-        med_text = p_hoy[movable_idx]
-        med_name = med_text.replace("✅", "").replace("🔄", "").replace("🟦", "").replace("⚠️", "").split("(")[0].strip()
-        
-        hd[hd_idx] = f"✅ {med_name}" if med_name in habituales_hd else f"⚖️ {med_name}"
-        p_hoy[movable_idx] = "---" 
-        
-        p_filled = [i for i, x in enumerate(p_hoy) if x != "" and x != "---"]
-        hd_filled = [i for i, x in enumerate(hd[:3]) if x != ""]
-
-    if "Dra. Herrero" not in asignados:
-        for idx in [2, 0, 1]:
-            if p_hoy[idx] in ["", "---"]:
-                p_hoy[idx] = "🔄 Dra. Herrero"
-                asignados.append("Dra. Herrero")
-                break
-
-    # 6.10 INTERCAMBIO RAMOS / ROULSTON (Preferencia de G. Roulston para Planta)
-    idx_ramos_p = -1
-    idx_roulston_hd = -1
+    # 6.3 RELLENAR PLANTA: COMODÍN ABSOLUTO
     for i in range(3):
-        if "Dr. De Ramos" in p_hoy[i]: idx_ramos_p = i
-        if "Dr. G. Roulston" in hd[i]: idx_roulston_hd = i
-        
-    if idx_ramos_p != -1 and idx_roulston_hd != -1:
-        p_hoy[idx_ramos_p] = "🔄 Dr. G. Roulston"
-        hd[idx_roulston_hd] = "✅ Dr. De Ramos"
+        if p_hoy[i] == "" and "Dra. Herrero" not in asignados:
+            p_hoy[i] = "🔄 Dra. Herrero"
+            asignados.append("Dra. Herrero")
+
+    # 6.4 RELLENAR HD: SUSTITUTOS OFICIALES
+    for s in ["Dr. De Ramos", "Dr. G. Roulston", "Dra. Martín"]:
+        if s not in asignados and s not in no_pisan_hd:
+            for i in range(3):
+                if hd[i] == "":
+                    icon = "✅" if s in habituales_hd else "🔄"
+                    hd[i] = f"{icon} {s}"
+                    asignados.append(s)
+                    break
+
+    # 6.5 RELLENAR PLANTA: SUSTITUTOS DE HD
+    for s in ["Dr. G. Roulston", "Dr. De Ramos"]:
+        if s not in asignados and s not in no_pisan_planta:
+            for i in range(3):
+                if p_hoy[i] == "":
+                    if i in [0, 1] and s in no_pisan_p1_p2: continue
+                    if i in [0, 2] and s in no_pisan_p1_p3: continue
+                    p_hoy[i] = f"🔄 {s}"
+                    asignados.append(s)
+                    break
+
+    # 6.6 RELLENAR HD: GENÉRICO LIBRES
+    for m in plantilla:
+        if m not in asignados and m not in no_pisan_hd and not is_gest(m):
+            for i in range(3):
+                if hd[i] == "":
+                    icon = "✅" if m in habituales_hd else "🟦"
+                    hd[i] = f"{icon} {m}"
+                    asignados.append(m)
+                    break
+
+    # 6.7 RELLENAR PLANTA: GENÉRICO LIBRES
+    for m in plantilla:
+        if m not in asignados and m not in no_pisan_planta and not is_gest(m):
+            for i in range(3):
+                if p_hoy[i] == "":
+                    if i in [0, 1] and m in no_pisan_p1_p2: continue
+                    if i in [0, 2] and m in no_pisan_p1_p3: continue
+                    p_hoy[i] = f"🟦 {m}"
+                    asignados.append(m)
+                    break
+
+    # 6.8 RELLENAR HD: GESTIÓN ROTA (ÚLTIMO RECURSO)
+    for m in plantilla:
+        if m not in asignados and m not in no_pisan_hd and is_gest(m):
+            for i in range(3):
+                if hd[i] == "":
+                    hd[i] = f"⚠️ {m} (Gestión rota)"
+                    asignados.append(m)
+                    break
+
+    # 6.9 RELLENAR PLANTA: GESTIÓN ROTA (ÚLTIMO RECURSO)
+    for m in plantilla:
+        if m not in asignados and m not in no_pisan_planta and is_gest(m):
+            for i in range(3):
+                if p_hoy[i] == "":
+                    if i in [0, 1] and m in no_pisan_p1_p2: continue
+                    if i in [0, 2] and m in no_pisan_p1_p3: continue
+                    p_hoy[i] = f"⚠️ {m} (Gestión rota)"
+                    asignados.append(m)
+                    break
 
     for i in range(3):
         if p_hoy[i] == "": p_hoy[i] = "❌ [VACÍO]"
@@ -553,9 +523,9 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
             res["IC_Virt"] = "✅ Dra. Hernanz"
             if "Dra. Hernanz" not in asignados: asignados.append("Dra. Hernanz")
 
-    if "Dr. R. Rull" not in ausentes + salientes + bajas:
-        if "Dr. R. Rull" in asignados: res["IC_Ext"] = "✅ Dr. R. Rull (Simult.)"
-        else: res["IC_Ext"] = "✅ Dr. R. Rull"; asignados.append("Dr. R. Rull")
+    if "Dr. Ríos Rull" not in ausentes + salientes + bajas:
+        if "Dr. Ríos Rull" in asignados: res["IC_Ext"] = "✅ Dr. Ríos Rull (Simult.)"
+        else: res["IC_Ext"] = "✅ Dr. Ríos Rull"; asignados.append("Dr. Ríos Rull")
     else: res["IC_Ext"] = "❌ [VACÍO]"
 
     res["H_Dia"] = [f"HD{i+1}: {h}" for i, h in enumerate(hd)]
