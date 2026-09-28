@@ -263,7 +263,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     
     asignados = list(set(ausentes + bajas + salientes))
 
-    resi_planta, resi_hd, resi_diag, resi_banco, resi_cons, resi_otros = [], [], [], [], [], []
+    resi_planta, resi_hd, resi_diag, resi_banco, resi_cons, resi_coag, resi_otros = [], [], [], [], [], [], []
     
     if df_rot_r is not None and not df_rot_r.empty:
         try:
@@ -303,6 +303,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
                                     elif any(k in rot_main for k in ["DIA", "DÍA", "HD", "AMBULATORIO"]): resi_hd.append(resi)
                                     elif any(k in rot_main for k in ["DIAG", "LAB", "MORFOLOG", "CITOMETR", "BIOLOGIA"]): resi_diag.append(resi)
                                     elif any(k in rot_main for k in ["BANCO", "TRANSFUS", "AFERESIS", "AFÉRESIS"]): resi_banco.append(resi)
+                                    elif any(k in rot_main for k in ["COAG", "TAO", "TROMBOSIS", "HEMOSTASIA", "ACO"]): resi_coag.append(resi)
                                     elif any(k in rot_main for k in ["CONS", "XHEM"]): resi_cons.append(resi)
                                     else: resi_otros.append(f"{resi} ({rot_texto})")
                 except: continue
@@ -314,7 +315,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         "Guardia_Resis": " / ".join(guardia_hoy_resis) if guardia_hoy_resis else "",
         "Saliente": " / ".join(salientes) if salientes else "", 
         "Saliente_Resis": " / ".join(sal_resis) if sal_resis else "", 
-        "Resi_Planta": resi_planta, "Resi_HD": resi_hd, "Resi_Diag": resi_diag, "Resi_Banco": resi_banco, "Resi_Cons": resi_cons, "Resi_Otros": resi_otros,
+        "Resi_Planta": resi_planta, "Resi_HD": resi_hd, "Resi_Diag": resi_diag, "Resi_Banco": resi_banco, "Resi_Cons": resi_cons, "Resi_Coag": resi_coag, "Resi_Otros": resi_otros,
         "Ausentes": ausentes, "Agendas": {}
     }
 
@@ -323,7 +324,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         res["Es_Festivo"] = True
         res["Saliente"] = ""; res["Saliente_Resis"] = ""
         res["Ausentes"] = []
-        res["Resi_Planta"] = []; res["Resi_HD"] = []; res["Resi_Diag"] = []; res["Resi_Banco"] = []; res["Resi_Cons"] = []; res["Resi_Otros"] = []
+        res["Resi_Planta"] = []; res["Resi_HD"] = []; res["Resi_Diag"] = []; res["Resi_Banco"] = []; res["Resi_Cons"] = []; res["Resi_Coag"] = []; res["Resi_Otros"] = []
         for cod in ["XHEM4A", "XHEM4B", "XHEM4D", "XHEM4E", "XHEM4G", "XHEM5", "XHEM1A", "XHEM10 (Tromb.)", "XHEM11", "XHEM"]: res["Agendas"][cod] = ""
         res["Coag"] = []; res["Sur"] = ""; res["TAO"] = ""; res["Diag"] = ["", ""]
         res["Laboratorio"] = ""; res["Banco"] = ["", ""]; res["IC_Ext"] = ""; res["IC_Virt"] = ""
@@ -398,7 +399,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     res["Banco"] = ["✅ Dr. Figueroa" if asignar("Dr. Figueroa") else "❌ [VACÍO]", "✅ Dra. Peris" if asignar("Dra. Peris") else "❌ [VACÍO]"]
 
     # =========================================================================
-    # 6. ASIGNACIÓN ESTRICTA DE PLANTA Y HOSPITAL DE DÍA (MATRICES EXACTAS)
+    # 6. ASIGNACIÓN ESTRICTA DE PLANTA Y HOSPITAL DE DÍA
     # =========================================================================
     p_hoy = ["", "", ""]
     hd = ["", "", ""]
@@ -426,24 +427,39 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     for i in range(3):
         if p_titu[i] and asignar(p_titu[i]): p_hoy[i] = f"✅ {p_titu[i]}"
 
-    # 6.2 EL TRADE DEL MIÉRCOLES (Rescate especial para Planta)
-    if dia_en == "Wednesday":
-        if any(p == "" for p in p_hoy) and "✅ Dr. G. Roulston" in hd:
-            if "Dra. Herrero" in asignados: 
-                if "Dra. Hernández" not in asignados:
-                    idx = hd.index("✅ Dr. G. Roulston")
-                    hd[idx] = "⚠️ Dra. Hernández (Gestión rota)"
-                    asignados.remove("Dr. G. Roulston")
-                    asignados.append("Dra. Hernández")
-
-    # 6.3 RELLENAR PLANTA: COMODÍN ABSOLUTO
+    # 6.2 RELLENAR PLANTA: COMODÍN ABSOLUTO (HERRERO SIEMPRE ENTRA LA PRIMERA)
     for i in range(3):
         if p_hoy[i] == "" and "Dra. Herrero" not in asignados:
             p_hoy[i] = "🔄 Dra. Herrero"
             asignados.append("Dra. Herrero")
 
+    # 6.3 EL TRADE EXTENDIDO (Rescate especial para Planta)
+    # Si sigue habiendo hueco en Planta (es decir, Herrero no estaba o había 2 huecos)
+    if any(p == "" for p in p_hoy):
+        idx_roulston = -1
+        for i in range(3):
+            if "Dr. G. Roulston" in hd[i]:
+                idx_roulston = i
+                break
+                
+        if idx_roulston != -1:
+            # Encontramos a Roulston en HD. Vamos a sustituirlo para subirlo a Planta.
+            # Buscamos a alguien de gestión (Hernández o Martín)
+            if "Dra. Hernández" not in asignados:
+                hd[idx_roulston] = "✅ Dra. Hernández"
+                asignados.remove("Dr. G. Roulston")
+                asignados.append("Dra. Hernández")
+            elif "Dra. Martín" not in asignados:
+                if hd[2] == "": # Si su sillón HD3 está vacío, lo coge
+                    hd[2] = "✅ Dra. Martín"
+                    hd[idx_roulston] = "" 
+                else:
+                    hd[idx_roulston] = "✅ Dra. Martín"
+                asignados.remove("Dr. G. Roulston")
+                asignados.append("Dra. Martín")
+
     # 6.4 RELLENAR HD: SUSTITUTOS OFICIALES
-    for s in ["Dr. De Ramos", "Dr. G. Roulston", "Dra. Martín"]:
+    for s in ["Dr. De Ramos", "Dr. G. Roulston", "Dra. Martín", "Dra. Hernández", "Dra. Sánchez"]:
         if s not in asignados and s not in no_pisan_hd:
             for i in range(3):
                 if hd[i] == "":
@@ -452,7 +468,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
                     asignados.append(s)
                     break
 
-    # 6.5 RELLENAR PLANTA: SUSTITUTOS DE HD
+    # 6.5 RELLENAR PLANTA: SUSTITUTOS DE HD Y RESTO
     for s in ["Dr. G. Roulston", "Dr. De Ramos"]:
         if s not in asignados and s not in no_pisan_planta:
             for i in range(3):
@@ -484,23 +500,25 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
                     asignados.append(m)
                     break
 
-    # 6.8 RELLENAR HD: GESTIÓN ROTA (ÚLTIMO RECURSO)
+    # 6.8 RELLENAR HD: PERSONAL EN GESTIÓN (ÚLTIMO RECURSO SIN TEXTO "GESTIÓN ROTA")
     for m in plantilla:
         if m not in asignados and m not in no_pisan_hd and is_gest(m):
             for i in range(3):
                 if hd[i] == "":
-                    hd[i] = f"⚠️ {m} (Gestión rota)"
+                    icon = "✅" if m in habituales_hd else "⚠️"
+                    hd[i] = f"{icon} {m}"
                     asignados.append(m)
                     break
 
-    # 6.9 RELLENAR PLANTA: GESTIÓN ROTA (ÚLTIMO RECURSO)
+    # 6.9 RELLENAR PLANTA: PERSONAL EN GESTIÓN (ÚLTIMO RECURSO SIN TEXTO)
     for m in plantilla:
         if m not in asignados and m not in no_pisan_planta and is_gest(m):
             for i in range(3):
                 if p_hoy[i] == "":
                     if i in [0, 1] and m in no_pisan_p1_p2: continue
                     if i in [0, 2] and m in no_pisan_p1_p3: continue
-                    p_hoy[i] = f"⚠️ {m} (Gestión rota)"
+                    icon = "🔄" if m == "Dra. Herrero" else "⚠️"
+                    p_hoy[i] = f"{icon} {m}"
                     asignados.append(m)
                     break
 
@@ -591,6 +609,7 @@ if df_g is not None:
                 if d["Resi_Cons"]: st.markdown(f"**Cons Resi:** {', '.join(d['Resi_Cons'])}")
                 st.divider()
                 st.markdown(f"**TAO:** {d['TAO']}")
+                if d.get("Resi_Coag"): st.markdown(f"**Coag Resi:** {', '.join(d['Resi_Coag'])}")
                 st.markdown(f"**Sur:** {d['Sur']}")
             with c4:
                 st.subheader("🏥 IC y Pediatría")
@@ -617,7 +636,7 @@ if df_g is not None:
             "P1", "P2", "P3", "P Resi", 
             "HD1", "HD2", "HD3", "HD Res", 
             "Cons 1", "Cons 2", "Cons 3", "Cons Resi", 
-            "Coagulación", "TAO", 
+            "Coagulación", "TAO", "Coag Resi", 
             "Pediatría", 
             "Diag 1", "Diag 2", "Laboratorio", "Diag Resi", 
             "Banco 1", "Banco 2", "Banco Resi", 
@@ -639,7 +658,7 @@ if df_g is not None:
             
             if d.get("Es_Festivo"):
                 for p in pts: 
-                    if p not in ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P Resi", "HD Res", "Cons Resi", "Diag Resi", "Banco Resi", "Otras Rotaciones", "No Disponibles Totales"]:
+                    if p not in ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P Resi", "HD Res", "Cons Resi", "Coag Resi", "Diag Resi", "Banco Resi", "Otras Rotaciones", "No Disponibles Totales"]:
                         tb[p].append("🛑 FESTIVO")
                     elif p not in ["Guardia", "Guardia_Resis"]: tb[p].append("")
                 tb["No Disponibles Totales"][-1] = ""
@@ -682,6 +701,7 @@ if df_g is not None:
                 tb["Coagulación"].append(" / ".join(d["Coag"]) if d["Coag"] else "")
                 tb["Sur"].append(c(d["Sur"]))
                 tb["TAO"].append(c(d["TAO"]))
+                tb["Coag Resi"].append(" / ".join(d["Resi_Coag"]) if d.get("Resi_Coag") else "")
                 tb["Diag 1"].append(c(d["Diag"][0]))
                 tb["Diag 2"].append(c(d["Diag"][1]))
                 tb["Laboratorio"].append(c(d["Laboratorio"]))
@@ -701,7 +721,7 @@ if df_g is not None:
 
         df = pd.DataFrame(tb, index=cols).T
         
-        for r in ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P Resi", "HD Res", "Cons Resi", "Diag Resi", "Banco Resi", "Gestión", "Otras Rotaciones", "No Disponibles Totales"]:
+        for r in ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P Resi", "HD Res", "Cons Resi", "Coag Resi", "Diag Resi", "Banco Resi", "Gestión", "Otras Rotaciones", "No Disponibles Totales"]:
             if r in df.index and all(x == "" for x in df.loc[r]): df = df.drop(r)
         
         b = io.BytesIO()
@@ -717,6 +737,7 @@ if df_g is not None:
             bg_cons = '#FCE4D6'        
             bg_cons_r = '#FDF0E8'      
             bg_tao = '#FFF2CC'         
+            bg_tao_r = '#FFFDF5'       
             bg_ped = '#FDE9D9'         
             bg_lab = '#E4DFEC'         
             bg_lab_r = '#F8F6FA'     
@@ -736,6 +757,7 @@ if df_g is not None:
                 if str(r).startswith('Cons') and 'Res' not in r: return bg_cons
                 if r == 'Cons Resi': return bg_cons_r
                 if r in ['Coagulación', 'TAO']: return bg_tao
+                if r == 'Coag Resi': return bg_tao_r
                 if r == 'Pediatría': return bg_ped
                 if r == 'Diag Resi': return bg_lab_r  
                 if str(r).startswith('Diag') or r == 'Laboratorio': return bg_lab
@@ -773,7 +795,7 @@ if df_g is not None:
                     s_val = str(val).strip() if pd.notna(val) else ""
                     
                     is_empty_cell = (s_val == "" or "VACÍO" in s_val or s_val == "---")
-                    is_excluded_row = row_name in ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P Resi", "HD Res", "Cons Resi", "Diag Resi", "Banco Resi", "Otras Rotaciones", "Gestión"]
+                    is_excluded_row = row_name in ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P Resi", "HD Res", "Cons Resi", "Coag Resi", "Diag Resi", "Banco Resi", "Otras Rotaciones", "Gestión"]
                     is_ic_virt_exception = (row_name == "IC Virt" and c_idx in [0, 3]) 
                     
                     if row_name == 'No Disponibles Totales':
