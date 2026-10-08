@@ -329,7 +329,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         res["Coag"] = []; res["Sur"] = ""; res["TAO"] = ""; res["Diag"] = ["", ""]
         res["Laboratorio"] = ""; res["Banco"] = ["", ""]; res["IC_Ext"] = ""; res["IC_Virt"] = ""
         res["Planta"] = ["🛑 FESTIVO", "🛑 FESTIVO", "🛑 FESTIVO"]
-        res["H_Dia"] = ["🛑 FESTIVO", "🛑 FESTIVO", "🛑 FESTIVO"]
+        res["H_Dia"] = ["🛑 FESTIVO", "🛑 FESTIVO", "🛑 FESTIVO", "🛑 FESTIVO"]
         res["Ped"] = ""; res["IC_Hosp"] = ""; res["Gestion"] = []
         return res
 
@@ -399,10 +399,10 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     res["Banco"] = ["✅ Dr. Figueroa" if asignar("Dr. Figueroa") else "❌ [VACÍO]", "✅ Dra. Peris" if asignar("Dra. Peris") else "❌ [VACÍO]"]
 
     # =========================================================================
-    # 6. ASIGNACIÓN ESTRICTA DE PLANTA Y HOSPITAL DE DÍA
+    # 6. ASIGNACIÓN ESTRICTA DE PLANTA Y HOSPITAL DE DÍA (MATRICES EXACTAS)
     # =========================================================================
     p_hoy = ["", "", ""]
-    hd = ["", "", ""]
+    hd = ["", "", "", ""] # 4 posiciones ahora
     
     p_titu = ["Dra. Busnego", "Dr. Moreno", "Dra. R. Esteban"]
     
@@ -414,18 +414,23 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     
     habituales_hd = ["Dra. Sánchez", "Dra. Hernández", "Dr. De Ramos", "Dra. Martín", "Dr. Ríos Rull", "Dr. G. Roulston"]
     no_pisan_planta = ["Dra. Sánchez", "Dra. Hernández", "Dra. Lorenzo", "Dr. Ríos Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dra. Martín", "Dra. Montalvo"]
-    no_pisan_hd = ["Dr. Moreno", "Dra. R. Esteban", "Dra. Lorenzo", "Dr. Ríos Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dra. Herrero", "Dra. Montalvo"]
+    no_pisan_hd = ["Dr. Moreno", "Dra. R. Esteban", "Dr. Ríos Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dra. Herrero", "Dra. Montalvo"]
     
     no_pisan_p1_p2 = ["Dra. R. Esteban"]
     no_pisan_p1_p3 = ["Dr. Moreno"]
 
     def is_gest(m): return (dia_en=="Tuesday" and m=="Dra. Sánchez") or (dia_en=="Wednesday" and m=="Dra. Hernández") or (dia_en=="Friday" and m=="Dra. Martín")
 
-    # 6.1 ASIGNAR TITULARES DE PLANTA Y HD
+    # 6.1 ASIGNAR TITULARES DE PLANTA Y HD (HD1-HD3)
     for i in range(3):
         if hd_titu[i] and asignar(hd_titu[i]): hd[i] = f"✅ {hd_titu[i]}"
     for i in range(3):
         if p_titu[i] and asignar(p_titu[i]): p_hoy[i] = f"✅ {p_titu[i]}"
+
+    # 6.1.5 ASIGNAR TITULAR DE HD4 EXCLUSIVAMENTE PARA DRA. LORENZO
+    if "Dra. Lorenzo" not in ausentes + salientes + bajas:
+        hd[3] = "✅ Dra. Lorenzo"
+        if "Dra. Lorenzo" not in asignados: asignados.append("Dra. Lorenzo")
 
     # 6.2 RELLENAR PLANTA: COMODÍN ABSOLUTO (HERRERO SIEMPRE ENTRA LA PRIMERA)
     for i in range(3):
@@ -434,7 +439,6 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
             asignados.append("Dra. Herrero")
 
     # 6.3 EL TRADE EXTENDIDO (Rescate especial para Planta)
-    # Si sigue habiendo hueco en Planta (es decir, Herrero no estaba o había 2 huecos)
     if any(p == "" for p in p_hoy):
         idx_roulston = -1
         for i in range(3):
@@ -443,14 +447,12 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
                 break
                 
         if idx_roulston != -1:
-            # Encontramos a Roulston en HD. Vamos a sustituirlo para subirlo a Planta.
-            # Buscamos a alguien de gestión (Hernández o Martín)
             if "Dra. Hernández" not in asignados:
                 hd[idx_roulston] = "✅ Dra. Hernández"
                 asignados.remove("Dr. G. Roulston")
                 asignados.append("Dra. Hernández")
             elif "Dra. Martín" not in asignados:
-                if hd[2] == "": # Si su sillón HD3 está vacío, lo coge
+                if hd[2] == "": 
                     hd[2] = "✅ Dra. Martín"
                     hd[idx_roulston] = "" 
                 else:
@@ -458,7 +460,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
                 asignados.remove("Dr. G. Roulston")
                 asignados.append("Dra. Martín")
 
-    # 6.4 RELLENAR HD: SUSTITUTOS OFICIALES
+    # 6.4 RELLENAR HD: SUSTITUTOS OFICIALES (Solo HD1-HD3)
     for s in ["Dr. De Ramos", "Dr. G. Roulston", "Dra. Martín", "Dra. Hernández", "Dra. Sánchez"]:
         if s not in asignados and s not in no_pisan_hd:
             for i in range(3):
@@ -479,7 +481,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
                     asignados.append(s)
                     break
 
-    # 6.6 RELLENAR HD: GENÉRICO LIBRES
+    # 6.6 RELLENAR HD: GENÉRICO LIBRES (Solo HD1-HD3)
     for m in plantilla:
         if m not in asignados and m not in no_pisan_hd and not is_gest(m):
             for i in range(3):
@@ -500,7 +502,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
                     asignados.append(m)
                     break
 
-    # 6.8 RELLENAR HD: PERSONAL EN GESTIÓN (ÚLTIMO RECURSO SIN TEXTO "GESTIÓN ROTA")
+    # 6.8 RELLENAR HD: PERSONAL EN GESTIÓN (ÚLTIMO RECURSO)
     for m in plantilla:
         if m not in asignados and m not in no_pisan_hd and is_gest(m):
             for i in range(3):
@@ -510,7 +512,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
                     asignados.append(m)
                     break
 
-    # 6.9 RELLENAR PLANTA: PERSONAL EN GESTIÓN (ÚLTIMO RECURSO SIN TEXTO)
+    # 6.9 RELLENAR PLANTA: PERSONAL EN GESTIÓN (ÚLTIMO RECURSO)
     for m in plantilla:
         if m not in asignados and m not in no_pisan_planta and is_gest(m):
             for i in range(3):
@@ -524,6 +526,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
 
     for i in range(3):
         if p_hoy[i] == "": p_hoy[i] = "❌ [VACÍO]"
+    for i in range(4):
         if hd[i] == "": hd[i] = "❌ [VACÍO]"
 
     # 8. INTERCONSULTA VIRTUAL Y EXTERNA
@@ -634,7 +637,7 @@ if df_g is not None:
         
         pts = [
             "P1", "P2", "P3", "P Resi", 
-            "HD1", "HD2", "HD3", "HD Res", 
+            "HD1", "HD2", "HD3", "HD4", "HD Res", 
             "Cons 1", "Cons 2", "Cons 3", "Cons Resi", 
             "Coagulación", "TAO", "Coag Resi", 
             "Pediatría", 
@@ -685,6 +688,7 @@ if df_g is not None:
                 tb["HD1"].append(g(d["H_Dia"],0))
                 tb["HD2"].append(g(d["H_Dia"],1))
                 tb["HD3"].append(g(d["H_Dia"],2))
+                tb["HD4"].append(g(d["H_Dia"],3))
                 tb["HD Res"].append(" / ".join(d["Resi_HD"]) if d["Resi_HD"] else "")
                 
                 c3_val = nrms[2]
