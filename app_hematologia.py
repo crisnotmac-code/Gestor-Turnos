@@ -1,3 +1,15 @@
+¡Entendido y ajustado! Dejar la Consulta 4 inactiva (sin saltar en rojo) de lunes a jueves requiere un par de excepciones visuales que ya he programado, y sombrear las guardias le da el toque de color perfecto para separar los bloques visualmente.
+
+Resumen de la V91:
+
+HD4 Dinámico: De Lunes a Jueves, la Consulta 4 del Hospital de Día permanecerá completamente inactiva y vacía en el Excel (sin alertar en rojo). Llegado el viernes, el sistema intentará colocar a la Dra. Lorenzo. Solo si ella falta el viernes, la casilla saltará en rojo para avisar de que la cama está descubierta.
+
+Guardias en Naranja: He aplicado el color naranja estándar (#F8CBAD) a las filas enteras de "Guardia" y "Guardia_Resis" para que destaquen en la parte inferior del documento y sirvan de separación clara con los salientes y las vacaciones.
+
+🛠️ Código Definitivo (V91 - HD4 Exclusivo Viernes y Guardias Naranja)
+Sustituye todo el código en GitHub por este bloque, dale a "Commit changes" y pulsa "Reboot app" en Streamlit. ¡El documento quedará impecable!
+
+Python
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
@@ -402,7 +414,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     # 6. ASIGNACIÓN ESTRICTA DE PLANTA Y HOSPITAL DE DÍA (MATRICES EXACTAS)
     # =========================================================================
     p_hoy = ["", "", ""]
-    hd = ["", "", "", ""] # 4 posiciones ahora
+    hd = ["", "", "", ""] # HD1, HD2, HD3, HD4
     
     p_titu = ["Dra. Busnego", "Dr. Moreno", "Dra. R. Esteban"]
     
@@ -414,23 +426,27 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     
     habituales_hd = ["Dra. Sánchez", "Dra. Hernández", "Dr. De Ramos", "Dra. Martín", "Dr. Ríos Rull", "Dr. G. Roulston"]
     no_pisan_planta = ["Dra. Sánchez", "Dra. Hernández", "Dra. Lorenzo", "Dr. Ríos Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dra. Martín", "Dra. Montalvo"]
-    no_pisan_hd = ["Dr. Moreno", "Dra. R. Esteban", "Dr. Ríos Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dra. Herrero", "Dra. Montalvo"]
+    no_pisan_hd = ["Dr. Moreno", "Dra. R. Esteban", "Dra. Lorenzo", "Dr. Ríos Rull", "Dr. R. de Paz", "Dr. González", "Dra. Marrero", "Dra. Hernanz", "Dra. Herrero", "Dra. Montalvo"]
     
     no_pisan_p1_p2 = ["Dra. R. Esteban"]
     no_pisan_p1_p3 = ["Dr. Moreno"]
 
     def is_gest(m): return (dia_en=="Tuesday" and m=="Dra. Sánchez") or (dia_en=="Wednesday" and m=="Dra. Hernández") or (dia_en=="Friday" and m=="Dra. Martín")
 
-    # 6.1 ASIGNAR TITULARES DE PLANTA Y HD (HD1-HD3)
+    # 6.1 ASIGNAR TITULARES DE PLANTA Y HD (Solo HD1-HD3)
     for i in range(3):
         if hd_titu[i] and asignar(hd_titu[i]): hd[i] = f"✅ {hd_titu[i]}"
     for i in range(3):
         if p_titu[i] and asignar(p_titu[i]): p_hoy[i] = f"✅ {p_titu[i]}"
 
-    # 6.1.5 ASIGNAR TITULAR DE HD4 EXCLUSIVAMENTE PARA DRA. LORENZO
-    if "Dra. Lorenzo" not in ausentes + salientes + bajas:
-        hd[3] = "✅ Dra. Lorenzo"
-        if "Dra. Lorenzo" not in asignados: asignados.append("Dra. Lorenzo")
+    # 6.1.5 ASIGNAR TITULAR DE HD4 EXCLUSIVAMENTE PARA DRA. LORENZO LOS VIERNES
+    if dia_en == "Friday":
+        if "Dra. Lorenzo" not in ausentes + salientes + bajas:
+            hd[3] = "✅ Dra. Lorenzo"
+            if "Dra. Lorenzo" not in asignados: asignados.append("Dra. Lorenzo")
+    else:
+        # Lunes a Jueves se queda oculta (--- evita que salte en rojo y permite filtrarla)
+        hd[3] = "---"
 
     # 6.2 RELLENAR PLANTA: COMODÍN ABSOLUTO (HERRERO SIEMPRE ENTRA LA PRIMERA)
     for i in range(3):
@@ -549,7 +565,8 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         else: res["IC_Ext"] = "✅ Dr. Ríos Rull"; asignados.append("Dr. Ríos Rull")
     else: res["IC_Ext"] = "❌ [VACÍO]"
 
-    res["H_Dia"] = [f"HD{i+1}: {h}" for i, h in enumerate(hd)]
+    # Omitimos el "---" de los días vacíos en HD4 para que no se imprima en la vista diaria
+    res["H_Dia"] = [f"HD{i+1}: {h}" for i, h in enumerate(hd) if h != "---"]
     res["Planta"] = [f"P{i+1}: {p}" for i, p in enumerate(p_hoy)]
         
     res["Gestion"] = [m for m in plantilla if m not in asignados]
@@ -749,6 +766,7 @@ if df_g is not None:
             bg_banco_r = '#F8EDED'     
             bg_sur = '#FFF8DC'         
             bg_ic = '#D1EEEE'          
+            bg_guardia = '#F8CBAD'     # Color Naranja para Guardia
             bg_def = '#FFFFFF'         
             bg_idx = '#F2F2F2'         
             bg_total = '#595959'       
@@ -769,6 +787,7 @@ if df_g is not None:
                 if r == 'Banco Resi': return bg_banco_r
                 if r == 'Sur': return bg_sur
                 if str(r).startswith('IC '): return bg_ic
+                if r in ['Guardia', 'Guardia_Resis']: return bg_guardia
                 if r == 'No Disponibles Totales': return bg_total
                 return bg_def
 
@@ -801,13 +820,15 @@ if df_g is not None:
                     is_empty_cell = (s_val == "" or "VACÍO" in s_val or s_val == "---")
                     is_excluded_row = row_name in ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P Resi", "HD Res", "Cons Resi", "Coag Resi", "Diag Resi", "Banco Resi", "Otras Rotaciones", "Gestión"]
                     is_ic_virt_exception = (row_name == "IC Virt" and c_idx in [0, 3]) 
+                    is_hd4_exception = (row_name == "HD4" and c_idx in [0, 1, 2, 3]) # No pintar rojo L-J
                     
                     if row_name == 'No Disponibles Totales':
                         ws.write(r_idx + 1, c_idx + 1, s_val, fmt_total_val)
-                    elif is_empty_cell and not is_excluded_row and not is_ic_virt_exception:
+                    elif is_empty_cell and not is_excluded_row and not is_ic_virt_exception and not is_hd4_exception:
                         ws.write(r_idx + 1, c_idx + 1, "", fmt_vacio)
                     else:
                         if "VACÍO" in s_val: s_val = ""
+                        if s_val == "---": s_val = "" # Limpia los guiones para que se vea perfectamente vacío
                         ws.write(r_idx + 1, c_idx + 1, s_val, fmt_cells[c_bg])
 
             ws.set_column(0, 0, 20)
