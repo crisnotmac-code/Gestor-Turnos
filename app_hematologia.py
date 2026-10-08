@@ -1,15 +1,3 @@
-¡Entendido y ajustado! Dejar la Consulta 4 inactiva (sin saltar en rojo) de lunes a jueves requiere un par de excepciones visuales que ya he programado, y sombrear las guardias le da el toque de color perfecto para separar los bloques visualmente.
-
-Resumen de la V91:
-
-HD4 Dinámico: De Lunes a Jueves, la Consulta 4 del Hospital de Día permanecerá completamente inactiva y vacía en el Excel (sin alertar en rojo). Llegado el viernes, el sistema intentará colocar a la Dra. Lorenzo. Solo si ella falta el viernes, la casilla saltará en rojo para avisar de que la cama está descubierta.
-
-Guardias en Naranja: He aplicado el color naranja estándar (#F8CBAD) a las filas enteras de "Guardia" y "Guardia_Resis" para que destaquen en la parte inferior del documento y sirvan de separación clara con los salientes y las vacaciones.
-
-🛠️ Código Definitivo (V91 - HD4 Exclusivo Viernes y Guardias Naranja)
-Sustituye todo el código en GitHub por este bloque, dale a "Commit changes" y pulsa "Reboot app" en Streamlit. ¡El documento quedará impecable!
-
-Python
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
