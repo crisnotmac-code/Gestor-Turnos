@@ -138,6 +138,7 @@ def is_matching_date(val, target_date):
     except: pass
     return False
 
+@st.cache_data
 def cargar_todo(archivo):
     try:
         if isinstance(archivo, str):
@@ -147,18 +148,35 @@ def cargar_todo(archivo):
         else: f = archivo
             
         xl = pd.ExcelFile(f)
-        def get_sheet(keywords, header_mode=0):
+        def get_sheet_name(keywords):
             for sheet in xl.sheet_names:
                 sheet_up = str(sheet).strip().upper()
                 for kw in keywords:
-                    if kw in sheet_up: return xl.parse(sheet, header=header_mode)
+                    if kw in sheet_up: return sheet
             return None
 
-        df_g = get_sheet(["GUARDIAS", "GUARDIA"], header_mode=None)
-        df_v = get_sheet(["VACACIONES", "VACACION", "LIBRE"], header_mode=0)
-        df_g_r = get_sheet(["GUARDIAS_R", "RESIDENTES_G", "RESIS"], header_mode=None)
-        df_rot_r = get_sheet(["ROTACIONES_R", "ROTACION"], header_mode=0)
+        # 1. VACACIONES: Limitar lectura de A a E
+        s_vac = get_sheet_name(["VACACIONES", "VACACION", "LIBRE"])
+        df_v = pd.read_excel(xl, sheet_name=s_vac, usecols='A:E') if s_vac else None
+
+        # 2. GUARDIAS ADJUNTOS: Forzar lectura sin cabecera
+        s_g = get_sheet_name(["GUARDIAS", "GUARDIA"])
+        df_g = pd.read_excel(xl, sheet_name=s_g, header=None, names=['Fecha', 'Dia', 'Medico']) if s_g else None
+
+        # 3. GUARDIAS RESIDENTES: Forzar lectura sin cabecera
+        s_gr = get_sheet_name(["GUARDIAS_R", "RESIDENTES_G", "RESIS"])
+        df_g_r = pd.read_excel(xl, sheet_name=s_gr, header=None, names=['Fecha', 'Dia', 'Medico']) if s_gr else None
+
+        # 4. ROTACIONES RESIDENTES: Limpiar columnas vacías
+        s_rot = get_sheet_name(["ROTACIONES_R", "ROTACION"])
+        df_rot_r = pd.read_excel(xl, sheet_name=s_rot) if s_rot else None
         
+        if df_rot_r is not None and not df_rot_r.empty:
+            if 'Unnamed: 1' in df_rot_r.columns:
+                df_rot_r = df_rot_r.drop(columns=['Unnamed: 1'])
+            if 'Nombre' in df_rot_r.columns:
+                df_rot_r = df_rot_r.dropna(subset=['Nombre'])
+
         def clean_df(d):
             if d is not None and not d.empty: return d.loc[:, ~d.columns.duplicated()]
             return d
