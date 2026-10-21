@@ -36,6 +36,7 @@ def formatear_resi(n_orig):
     if "QUINTERO" in n: return "Dr. Quintero"
     if "CRESPO" in n: return "Dra. Crespo"
     if "OLIVA" in n: return "Dra. Oliva"
+    if "FEBLES" in n or "JING" in n: return "Dra. García"
     
     parts = n.split()
     if not parts: return ""
@@ -48,8 +49,15 @@ def match_medico(nombre_texto, med):
     nt = limpiar_texto(nombre_texto)
     mt = limpiar_texto(med).replace("DR. ", "").replace("DRA. ", "").replace("DR ", "").replace("DRA ", "").strip()
     
-    if "CLIMENT" in nt and "GONZALEZ" in mt: return False
+    # 1. Bloqueo estricto: Si detecta a un Residente, prohíbe asociarlo a un Adjunto
+    if any(x in nt for x in ["CLIMENT", "DOS SANTOS", "RUBIO", "MARCAL", "MARTINEZ", "QUINTERO", "CRESPO", "OLIVA", "FEBLES", "JING"]): 
+        return False
+        
+    # 2. Evitar cruces entre los propios adjuntos
+    if med == "Dra. Martín": return "MARTIN" in nt and "ROULSTON" not in nt
+    if med == "Dra. Hernández": return "HERNANDEZ" in nt and "LORENZO" not in nt
     
+    # 3. Casos especiales
     if med == "Dr. R. de Paz": return ("PAZ" in nt) or (("RIOS" in nt or "PABLO" in nt) and "RULL" not in nt)
     if med == "Dr. Ríos Rull": return "RULL" in nt
     if med == "Dr. G. Roulston": return "ROULSTON" in nt or "KEVIN" in nt
