@@ -350,7 +350,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         res["Saliente"] = ""; res["Saliente_Resis"] = ""
         res["Ausentes"] = []
         res["Resi_Planta"] = []; res["Resi_HD"] = []; res["Resi_Diag"] = []; res["Resi_Banco"] = []; res["Resi_Cons"] = []; res["Resi_Coag"] = []; res["Resi_Otros"] = []
-        for cod in ["XHEM4A", "XHEM4B", "XHEM4D", "XHEM4E", "XHEM4G", "XHEM5", "XHEM1A", "XHEM10 (Tromb.)", "XHEM11", "XHEM", "Cons 4"]: res["Agendas"][cod] = ""
+        for cod in ["XHEM4A", "XHEM4B", "XHEM4D", "XHEM4E", "XHEM4G", "XHEM5", "XHEM1A", "Trombofilia", "XHEM11", "XHEM", "Cons 4"]: res["Agendas"][cod] = ""
         res["Coag"] = []; res["Sur"] = ""; res["TAO"] = ""; res["Diag"] = ["", ""]
         res["Laboratorio"] = ""; res["Banco"] = ["", ""]; res["IC_Ext"] = ""; res["IC_Virt"] = ""
         res["Planta"] = ["🛑 FESTIVO", "🛑 FESTIVO", "🛑 FESTIVO"]
@@ -367,10 +367,16 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     disp_rios = "Dr. R. de Paz" not in asignados
     disp_mont = "Dra. Montalvo" not in asignados
     res["Coag"] = []
-    if disp_rios: res["Coag"].append("Dr. R. de Paz"); asignados.append("Dr. R. de Paz")
     
+    # Dr. R. de Paz va a Coagulación todos los días EXCEPTO los miércoles (fijo en TAO)
+    if disp_rios and dia_en != "Wednesday": 
+        res["Coag"].append("Dr. R. de Paz")
+        asignados.append("Dr. R. de Paz")
+    
+    # Dra. Montalvo va a Coagulación todos los días EXCEPTO los viernes (tiene Trombofilia)
     if disp_mont and dia_en != "Friday": 
-        res["Coag"].append("Dra. Montalvo"); asignados.append("Dra. Montalvo")
+        res["Coag"].append("Dra. Montalvo")
+        asignados.append("Dra. Montalvo")
 
     sur_titu = {"Monday": "Dr. G. Roulston", "Tuesday": "Dra. Montalvo", "Wednesday": "Dra. Herrero", "Thursday": "Dr. De Ramos", "Friday": "Dra. R. Esteban"}.get(dia_en)
     if sur_titu == "Dra. Montalvo" and disp_mont: res["Sur"] = "✅ Dra. Montalvo"
@@ -381,11 +387,11 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     r_xhem = {
         "Monday": [("XHEM4A", "Dra. Marrero"), ("XHEM4B", "Dra. Hernanz"), ("XHEM4G", "Dra. Lorenzo"), ("XHEM11", "Dr. R. de Paz")], 
         "Tuesday": [("XHEM4A", "Dra. Marrero"), ("XHEM4E", "Dr. De Ramos"), ("XHEM11", "Dr. R. de Paz"), ("XHEM1A", "Dra. Herrero")], 
-        "Wednesday": [("XHEM4B", "Dra. Hernanz"), ("XHEM4D", "Dra. Martín"), ("XHEM4G", "Dra. Lorenzo"), ("XHEM10 (Tromb.)", "Dra. Montalvo")], 
+        "Wednesday": [("XHEM4B", "Dra. Hernanz"), ("XHEM4D", "Dra. Martín"), ("XHEM4G", "Dra. Lorenzo")], # Eliminada Montalvo de aquí
         "Thursday": [("XHEM4B", "Dra. Hernanz"), ("XHEM5", "Dra. Sánchez"), ("XHEM11", "Dr. R. de Paz"), ("XHEM1A", "Dra. Herrero")], 
-        "Friday": [("XHEM4A", "Dra. Marrero"), ("XHEM", "Dra. Montalvo"), ("XHEM11", "Dr. R. de Paz")] 
+        "Friday": [("XHEM4A", "Dra. Marrero"), ("Trombofilia", "Dra. Montalvo"), ("XHEM11", "Dr. R. de Paz")] # Puesta Trombofilia
     }
-    for cod in ["XHEM4A", "XHEM4B", "XHEM", "XHEM4D", "XHEM4E", "XHEM4G", "XHEM5", "XHEM1A", "XHEM10 (Tromb.)", "XHEM11", "Cons 4"]: res["Agendas"][cod] = ""
+    for cod in ["XHEM4A", "XHEM4B", "XHEM", "XHEM4D", "XHEM4E", "XHEM4G", "XHEM5", "XHEM1A", "Trombofilia", "XHEM11", "Cons 4"]: res["Agendas"][cod] = ""
     for c, m in r_xhem.get(dia_en, []):
         if m in ["Dr. R. de Paz", "Dra. Montalvo"]: res["Agendas"][c] = f"✅ {m}" if m not in ausentes + salientes + bajas else f"❌ {m} (No disp.)"
         elif asignar(m): res["Agendas"][c] = f"✅ {m}"
@@ -400,7 +406,10 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         tao_assigned.append("✅ Dra. Lorenzo")
     if dia_en in ["Wednesday", "Friday"] and disp_rios:
         tao_assigned.append("✅ Dr. R. de Paz")
-        
+        # Aseguramos que el miércoles quede bloqueado como ocupado en TAO
+        if dia_en == "Wednesday" and "Dr. R. de Paz" not in asignados:
+            asignados.append("Dr. R. de Paz")
+            
     if tao_assigned:
         res["TAO"] = " / ".join(tao_assigned)
     else:
@@ -562,6 +571,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
 
     # 8. INTERCONSULTA VIRTUAL Y EXTERNA
     res["IC_Virt"] = ""
+    # Viernes anulada la IC Virtual
     if dia_en == "Friday":
         res["IC_Virt"] = "---"
     elif dia_en == "Wednesday":
@@ -666,7 +676,6 @@ if df_g is not None:
     elif modo == "Semanal":
         lunes = f_sel - timedelta(days=f_sel.weekday())
         
-        # Eliminada la fila 'Cons Resi' para integrarla en 'Cons 2'
         pts = [
             "P1", "P2", "P3", "P Resi", 
             "HD1", "HD2", "HD3", "HD Res", 
@@ -701,7 +710,7 @@ if df_g is not None:
                 c1_vals, c2_vals, c3_vals = [], [], []
                 c4_val = ""
                 
-                # ENRUTAMIENTO ESTRICTO DE CONSULTAS SEGÚN REGLAS
+                # ENRUTAMIENTO ESTRICTO DE CONSULTAS A LAS SALAS FÍSICAS
                 for cod, m in d["Agendas"].items():
                     if "✅" in m or "🔄" in m:
                         nm = m.replace("✅ ","").replace("🔄 ","🔄 ")
@@ -712,10 +721,10 @@ if df_g is not None:
                             c1_vals.append(f"{cod}: {nm}")
                         elif cod in ["XHEM4B", "XHEM1A", "XHEM"]:
                             c2_vals.append(f"{cod}: {nm}")
-                        elif cod in ["XHEM4G", "XHEM5", "XHEM10 (Tromb.)", "XHEM4E"]:
+                        elif cod in ["XHEM4G", "XHEM5", "Trombofilia", "XHEM4E"]:
                             c3_vals.append(f"{cod}: {nm}")
 
-                # El residente de consultas ocupa físicamente la Consulta 2
+                # El Residente pasa a la Consulta 2 siempre
                 if d["Resi_Cons"]:
                     c2_vals.append("Resi: " + " / ".join(d["Resi_Cons"]))
                 
@@ -740,7 +749,7 @@ if df_g is not None:
                 tb["Cons 2"].append(" / ".join(c2_vals))
                 tb["Cons 3"].append(" / ".join(c3_vals))
                 tb["Cons 4"].append(c4_val)
-                tb["Cons Resi"].append("") # Vaciamos la fila clásica del Resi para que el filtro de limpieza la elimine sola
+                tb["Cons Resi"].append("") # Lo vaciamos intencionadamente para que se borre de la tabla luego
                 
                 tb["Coagulación"].append(" / ".join(d["Coag"]) if d["Coag"] else "")
                 tb["Sur"].append(c(d["Sur"]))
@@ -765,7 +774,6 @@ if df_g is not None:
 
         df = pd.DataFrame(tb, index=cols).T
         
-        # Elimina las filas que estén enteras vacías durante toda la semana (incluida 'Cons Resi' que ahora se junta en Cons 2)
         for r in ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P Resi", "HD Res", "Cons Resi", "Coag Resi", "Diag Resi", "Banco Resi", "Gestión", "Otras Rotaciones", "No Disponibles Totales"]:
             if r in df.index and all(x == "" for x in df.loc[r]): df = df.drop(r)
         
@@ -790,7 +798,7 @@ if df_g is not None:
             bg_banco_r = '#F8EDED'     
             bg_sur = '#FFF8DC'         
             bg_ic = '#D1EEEE'          
-            bg_guardia = '#F8CBAD'     # Color Naranja para Guardia
+            bg_guardia = '#F8CBAD'     
             bg_def = '#FFFFFF'         
             bg_idx = '#F2F2F2'         
             bg_total = '#595959'       
@@ -844,7 +852,7 @@ if df_g is not None:
                     is_empty_cell = (s_val == "" or "VACÍO" in s_val or s_val == "---")
                     is_excluded_row = row_name in ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P Resi", "HD Res", "Cons Resi", "Coag Resi", "Diag Resi", "Banco Resi", "Otras Rotaciones", "Gestión"]
                     is_ic_virt_exception = (row_name == "IC Virt" and c_idx in [0, 3]) 
-                    is_hd4_exception = (row_name == "Cons 4" and c_idx in [0, 1, 2, 3]) # No pintar rojo L-J
+                    is_hd4_exception = (row_name == "Cons 4" and c_idx in [0, 1, 2, 3]) # Evita pintar en rojo los L-J
                     
                     if row_name == 'No Disponibles Totales':
                         ws.write(r_idx + 1, c_idx + 1, s_val, fmt_total_val)
@@ -852,7 +860,7 @@ if df_g is not None:
                         ws.write(r_idx + 1, c_idx + 1, "", fmt_vacio)
                     else:
                         if "VACÍO" in s_val: s_val = ""
-                        if s_val == "---": s_val = "" # Limpia los guiones para que se vea perfectamente vacío
+                        if s_val == "---": s_val = "" 
                         ws.write(r_idx + 1, c_idx + 1, s_val, fmt_cells[c_bg])
 
             ws.set_column(0, 0, 20)
