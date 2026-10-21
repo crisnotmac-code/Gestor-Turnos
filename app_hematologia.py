@@ -49,15 +49,14 @@ def match_medico(nombre_texto, med):
     nt = limpiar_texto(nombre_texto)
     mt = limpiar_texto(med).replace("DR. ", "").replace("DRA. ", "").replace("DR ", "").replace("DRA ", "").strip()
     
-    # 1. Bloqueo estricto: Si detecta a un Residente, prohíbe asociarlo a un Adjunto
+    # Bloqueo de seguridad: Evitar que los adjuntos hereden asignaciones de los MIR
     if any(x in nt for x in ["CLIMENT", "DOS SANTOS", "RUBIO", "MARCAL", "MARTINEZ", "QUINTERO", "CRESPO", "OLIVA", "FEBLES", "JING"]): 
         return False
         
-    # 2. Evitar cruces entre los propios adjuntos
+    # Casos y blindajes especiales
     if med == "Dra. Martín": return "MARTIN" in nt and "ROULSTON" not in nt
     if med == "Dra. Hernández": return "HERNANDEZ" in nt and "LORENZO" not in nt
     
-    # 3. Casos especiales
     if med == "Dr. R. de Paz": return ("PAZ" in nt) or (("RIOS" in nt or "PABLO" in nt) and "RULL" not in nt)
     if med == "Dr. Ríos Rull": return "RULL" in nt
     if med == "Dr. G. Roulston": return "ROULSTON" in nt or "KEVIN" in nt
@@ -563,7 +562,6 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
 
     # 8. INTERCONSULTA VIRTUAL Y EXTERNA
     res["IC_Virt"] = ""
-    # MODIFICACIÓN: Viernes se anula la consulta virtual
     if dia_en == "Friday":
         res["IC_Virt"] = "---"
     elif dia_en == "Wednesday":
@@ -668,10 +666,11 @@ if df_g is not None:
     elif modo == "Semanal":
         lunes = f_sel - timedelta(days=f_sel.weekday())
         
+        # Eliminada la fila 'Cons Resi' para integrarla en 'Cons 2'
         pts = [
             "P1", "P2", "P3", "P Resi", 
             "HD1", "HD2", "HD3", "HD Res", 
-            "Cons 1", "Cons 2", "Cons 3", "Cons 4", "Cons Resi", 
+            "Cons 1", "Cons 2", "Cons 3", "Cons 4", "Cons Resi",
             "Coagulación", "TAO", "Coag Resi", 
             "Pediatría", 
             "Diag 1", "Diag 2", "Laboratorio", "Diag Resi", 
@@ -699,16 +698,26 @@ if df_g is not None:
                     elif p not in ["Guardia", "Guardia_Resis"]: tb[p].append("")
                 tb["No Disponibles Totales"][-1] = ""
             else:
-                nrms = []
+                c1_vals, c2_vals, c3_vals = [], [], []
                 c4_val = ""
+                
+                # ENRUTAMIENTO ESTRICTO DE CONSULTAS SEGÚN REGLAS
                 for cod, m in d["Agendas"].items():
                     if "✅" in m or "🔄" in m:
                         nm = m.replace("✅ ","").replace("🔄 ","🔄 ")
+                        
                         if cod == "Cons 4":
                             c4_val = nm
-                        elif cod not in ["XHEM10 (Tromb.)", "XHEM11"]: 
-                            nrms.append(f"{cod}: {nm}")
-                while len(nrms) < 3: nrms.append("")
+                        elif cod in ["XHEM4A", "XHEM4D"]:
+                            c1_vals.append(f"{cod}: {nm}")
+                        elif cod in ["XHEM4B", "XHEM1A", "XHEM"]:
+                            c2_vals.append(f"{cod}: {nm}")
+                        elif cod in ["XHEM4G", "XHEM5", "XHEM10 (Tromb.)", "XHEM4E"]:
+                            c3_vals.append(f"{cod}: {nm}")
+
+                # El residente de consultas ocupa físicamente la Consulta 2
+                if d["Resi_Cons"]:
+                    c2_vals.append("Resi: " + " / ".join(d["Resi_Cons"]))
                 
                 def c(v): return v.replace("✅ ","").replace("🟦 ","").replace("⚠️ ","").replace("❗ ","").replace("⚖️ ","⚖️ ")
                 def g(l, x): 
@@ -727,14 +736,11 @@ if df_g is not None:
                 tb["HD3"].append(g(d["H_Dia"],2))
                 tb["HD Res"].append(" / ".join(d["Resi_HD"]) if d["Resi_HD"] else "")
                 
-                c3_val = nrms[2]
-                cons_resi_val = " / ".join(d["Resi_Cons"]) if d["Resi_Cons"] else ""
-                
-                tb["Cons 1"].append(nrms[0])
-                tb["Cons 2"].append(nrms[1])
-                tb["Cons 3"].append(c3_val)
+                tb["Cons 1"].append(" / ".join(c1_vals))
+                tb["Cons 2"].append(" / ".join(c2_vals))
+                tb["Cons 3"].append(" / ".join(c3_vals))
                 tb["Cons 4"].append(c4_val)
-                tb["Cons Resi"].append(cons_resi_val)
+                tb["Cons Resi"].append("") # Vaciamos la fila clásica del Resi para que el filtro de limpieza la elimine sola
                 
                 tb["Coagulación"].append(" / ".join(d["Coag"]) if d["Coag"] else "")
                 tb["Sur"].append(c(d["Sur"]))
@@ -759,6 +765,7 @@ if df_g is not None:
 
         df = pd.DataFrame(tb, index=cols).T
         
+        # Elimina las filas que estén enteras vacías durante toda la semana (incluida 'Cons Resi' que ahora se junta en Cons 2)
         for r in ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P Resi", "HD Res", "Cons Resi", "Coag Resi", "Diag Resi", "Banco Resi", "Gestión", "Otras Rotaciones", "No Disponibles Totales"]:
             if r in df.index and all(x == "" for x in df.loc[r]): df = df.drop(r)
         
