@@ -343,11 +343,11 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         res["Saliente"] = ""; res["Saliente_Resis"] = ""
         res["Ausentes"] = []
         res["Resi_Planta"] = []; res["Resi_HD"] = []; res["Resi_Diag"] = []; res["Resi_Banco"] = []; res["Resi_Cons"] = []; res["Resi_Coag"] = []; res["Resi_Otros"] = []
-        for cod in ["XHEM4A", "XHEM4B", "XHEM4D", "XHEM4E", "XHEM4G", "XHEM5", "XHEM1A", "XHEM10 (Tromb.)", "XHEM11", "XHEM"]: res["Agendas"][cod] = ""
+        for cod in ["XHEM4A", "XHEM4B", "XHEM4D", "XHEM4E", "XHEM4G", "XHEM5", "XHEM1A", "XHEM10 (Tromb.)", "XHEM11", "XHEM", "Cons 4"]: res["Agendas"][cod] = ""
         res["Coag"] = []; res["Sur"] = ""; res["TAO"] = ""; res["Diag"] = ["", ""]
         res["Laboratorio"] = ""; res["Banco"] = ["", ""]; res["IC_Ext"] = ""; res["IC_Virt"] = ""
         res["Planta"] = ["🛑 FESTIVO", "🛑 FESTIVO", "🛑 FESTIVO"]
-        res["H_Dia"] = ["🛑 FESTIVO", "🛑 FESTIVO", "🛑 FESTIVO", "🛑 FESTIVO"]
+        res["H_Dia"] = ["🛑 FESTIVO", "🛑 FESTIVO", "🛑 FESTIVO"]
         res["Ped"] = ""; res["IC_Hosp"] = ""; res["Gestion"] = []
         return res
 
@@ -378,7 +378,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         "Thursday": [("XHEM4B", "Dra. Hernanz"), ("XHEM5", "Dra. Sánchez"), ("XHEM11", "Dr. R. de Paz"), ("XHEM1A", "Dra. Herrero")], 
         "Friday": [("XHEM4A", "Dra. Marrero"), ("XHEM", "Dra. Montalvo"), ("XHEM11", "Dr. R. de Paz")] 
     }
-    for cod in ["XHEM4A", "XHEM4B", "XHEM", "XHEM4D", "XHEM4E", "XHEM4G", "XHEM5", "XHEM1A", "XHEM10 (Tromb.)", "XHEM11"]: res["Agendas"][cod] = ""
+    for cod in ["XHEM4A", "XHEM4B", "XHEM", "XHEM4D", "XHEM4E", "XHEM4G", "XHEM5", "XHEM1A", "XHEM10 (Tromb.)", "XHEM11", "Cons 4"]: res["Agendas"][cod] = ""
     for c, m in r_xhem.get(dia_en, []):
         if m in ["Dr. R. de Paz", "Dra. Montalvo"]: res["Agendas"][c] = f"✅ {m}" if m not in ausentes + salientes + bajas else f"❌ {m} (No disp.)"
         elif asignar(m): res["Agendas"][c] = f"✅ {m}"
@@ -420,7 +420,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
     # 6. ASIGNACIÓN ESTRICTA DE PLANTA Y HOSPITAL DE DÍA (MATRICES EXACTAS)
     # =========================================================================
     p_hoy = ["", "", ""]
-    hd = ["", "", "", ""] # HD1, HD2, HD3, HD4
+    hd = ["", "", ""] # HD1, HD2, HD3
     
     p_titu = ["Dra. Busnego", "Dr. Moreno", "Dra. R. Esteban"]
     
@@ -439,20 +439,22 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
 
     def is_gest(m): return (dia_en=="Tuesday" and m=="Dra. Sánchez") or (dia_en=="Wednesday" and m=="Dra. Hernández") or (dia_en=="Friday" and m=="Dra. Martín")
 
-    # 6.1 ASIGNAR TITULARES DE PLANTA Y HD (Solo HD1-HD3)
+    # 6.1 ASIGNAR TITULARES DE PLANTA Y HD
     for i in range(3):
         if hd_titu[i] and asignar(hd_titu[i]): hd[i] = f"✅ {hd_titu[i]}"
     for i in range(3):
         if p_titu[i] and asignar(p_titu[i]): p_hoy[i] = f"✅ {p_titu[i]}"
 
-    # 6.1.5 ASIGNAR TITULAR DE HD4 EXCLUSIVAMENTE PARA DRA. LORENZO LOS VIERNES
+    # 6.1.5 ASIGNAR TITULAR DE Cons 4 EXCLUSIVAMENTE PARA DRA. LORENZO LOS VIERNES
     if dia_en == "Friday":
         if "Dra. Lorenzo" not in ausentes + salientes + bajas:
-            hd[3] = "✅ Dra. Lorenzo"
+            res["Agendas"]["Cons 4"] = "✅ Dra. Lorenzo"
             if "Dra. Lorenzo" not in asignados: asignados.append("Dra. Lorenzo")
+        else:
+            res["Agendas"]["Cons 4"] = "❌ Dra. Lorenzo (No disp.)"
     else:
         # Lunes a Jueves se queda oculta (--- evita que salte en rojo y permite filtrarla)
-        hd[3] = "---"
+        res["Agendas"]["Cons 4"] = "---"
 
     # 6.2 RELLENAR PLANTA: COMODÍN ABSOLUTO (HERRERO SIEMPRE ENTRA LA PRIMERA)
     for i in range(3):
@@ -482,7 +484,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
                 asignados.remove("Dr. G. Roulston")
                 asignados.append("Dra. Martín")
 
-    # 6.4 RELLENAR HD: SUSTITUTOS OFICIALES (Solo HD1-HD3)
+    # 6.4 RELLENAR HD: SUSTITUTOS OFICIALES
     for s in ["Dr. De Ramos", "Dr. G. Roulston", "Dra. Martín", "Dra. Hernández", "Dra. Sánchez"]:
         if s not in asignados and s not in no_pisan_hd:
             for i in range(3):
@@ -503,7 +505,7 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
                     asignados.append(s)
                     break
 
-    # 6.6 RELLENAR HD: GENÉRICO LIBRES (Solo HD1-HD3)
+    # 6.6 RELLENAR HD: GENÉRICO LIBRES
     for m in plantilla:
         if m not in asignados and m not in no_pisan_hd and not is_gest(m):
             for i in range(3):
@@ -548,15 +550,14 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
 
     for i in range(3):
         if p_hoy[i] == "": p_hoy[i] = "❌ [VACÍO]"
-    for i in range(4):
+    for i in range(3):
         if hd[i] == "": hd[i] = "❌ [VACÍO]"
 
     # 8. INTERCONSULTA VIRTUAL Y EXTERNA
     res["IC_Virt"] = ""
+    # MODIFICACIÓN: Viernes se anula la consulta virtual
     if dia_en == "Friday":
-        if "Dra. Lorenzo" not in ausentes + salientes + bajas: 
-            res["IC_Virt"] = "✅ Dra. Lorenzo"
-            if "Dra. Lorenzo" not in asignados: asignados.append("Dra. Lorenzo")
+        res["IC_Virt"] = "---"
     elif dia_en == "Wednesday":
         if "Dra. Marrero" not in ausentes + salientes + bajas: 
             res["IC_Virt"] = "✅ Dra. Marrero"
@@ -565,13 +566,14 @@ def calcular_cuadrante(fecha, df_g, df_v, bajas, df_g_r=None, df_rot_r=None):
         if "Dra. Hernanz" not in ausentes + salientes + bajas:
             res["IC_Virt"] = "✅ Dra. Hernanz"
             if "Dra. Hernanz" not in asignados: asignados.append("Dra. Hernanz")
+    else:
+        res["IC_Virt"] = "❌ [VACÍO]"
 
     if "Dr. Ríos Rull" not in ausentes + salientes + bajas:
         if "Dr. Ríos Rull" in asignados: res["IC_Ext"] = "✅ Dr. Ríos Rull (Simult.)"
         else: res["IC_Ext"] = "✅ Dr. Ríos Rull"; asignados.append("Dr. Ríos Rull")
     else: res["IC_Ext"] = "❌ [VACÍO]"
 
-    # Omitimos el "---" de los días vacíos en HD4 para que no se imprima en la vista diaria
     res["H_Dia"] = [f"HD{i+1}: {h}" for i, h in enumerate(hd) if h != "---"]
     res["Planta"] = [f"P{i+1}: {p}" for i, p in enumerate(p_hoy)]
         
@@ -640,7 +642,7 @@ if df_g is not None:
             with c4:
                 st.subheader("🏥 IC y Pediatría")
                 st.markdown(f"IC Hosp: {d['IC_Hosp']}")
-                st.markdown(f"IC Virt: {d['IC_Virt']}")
+                if d['IC_Virt'] != "---": st.markdown(f"IC Virt: {d['IC_Virt']}")
                 st.markdown(f"IC Ext: {d['IC_Ext']}")
                 st.markdown(f"**Ped:** {d['Ped']}")
                 st.divider()
@@ -660,8 +662,8 @@ if df_g is not None:
         
         pts = [
             "P1", "P2", "P3", "P Resi", 
-            "HD1", "HD2", "HD3", "HD4", "HD Res", 
-            "Cons 1", "Cons 2", "Cons 3", "Cons Resi", 
+            "HD1", "HD2", "HD3", "HD Res", 
+            "Cons 1", "Cons 2", "Cons 3", "Cons 4", "Cons Resi", 
             "Coagulación", "TAO", "Coag Resi", 
             "Pediatría", 
             "Diag 1", "Diag 2", "Laboratorio", "Diag Resi", 
@@ -690,10 +692,14 @@ if df_g is not None:
                 tb["No Disponibles Totales"][-1] = ""
             else:
                 nrms = []
+                c4_val = ""
                 for cod, m in d["Agendas"].items():
                     if "✅" in m or "🔄" in m:
                         nm = m.replace("✅ ","").replace("🔄 ","🔄 ")
-                        if cod not in ["XHEM10 (Tromb.)", "XHEM11"]: nrms.append(f"{cod}: {nm}")
+                        if cod == "Cons 4":
+                            c4_val = nm
+                        elif cod not in ["XHEM10 (Tromb.)", "XHEM11"]: 
+                            nrms.append(f"{cod}: {nm}")
                 while len(nrms) < 3: nrms.append("")
                 
                 def c(v): return v.replace("✅ ","").replace("🟦 ","").replace("⚠️ ","").replace("❗ ","").replace("⚖️ ","⚖️ ")
@@ -711,18 +717,15 @@ if df_g is not None:
                 tb["HD1"].append(g(d["H_Dia"],0))
                 tb["HD2"].append(g(d["H_Dia"],1))
                 tb["HD3"].append(g(d["H_Dia"],2))
-                tb["HD4"].append(g(d["H_Dia"],3))
                 tb["HD Res"].append(" / ".join(d["Resi_HD"]) if d["Resi_HD"] else "")
                 
                 c3_val = nrms[2]
                 cons_resi_val = " / ".join(d["Resi_Cons"]) if d["Resi_Cons"] else ""
-                if "Friday" in d['Día'] and d["Resi_Cons"]:
-                    c3_val = cons_resi_val
-                    cons_resi_val = ""
                 
                 tb["Cons 1"].append(nrms[0])
                 tb["Cons 2"].append(nrms[1])
                 tb["Cons 3"].append(c3_val)
+                tb["Cons 4"].append(c4_val)
                 tb["Cons Resi"].append(cons_resi_val)
                 
                 tb["Coagulación"].append(" / ".join(d["Coag"]) if d["Coag"] else "")
@@ -826,7 +829,7 @@ if df_g is not None:
                     is_empty_cell = (s_val == "" or "VACÍO" in s_val or s_val == "---")
                     is_excluded_row = row_name in ["Guardia", "Guardia_Resis", "Saliente", "Sal_Resis", "Ausentes", "P Resi", "HD Res", "Cons Resi", "Coag Resi", "Diag Resi", "Banco Resi", "Otras Rotaciones", "Gestión"]
                     is_ic_virt_exception = (row_name == "IC Virt" and c_idx in [0, 3]) 
-                    is_hd4_exception = (row_name == "HD4" and c_idx in [0, 1, 2, 3]) # No pintar rojo L-J
+                    is_hd4_exception = (row_name == "Cons 4" and c_idx in [0, 1, 2, 3]) # No pintar rojo L-J
                     
                     if row_name == 'No Disponibles Totales':
                         ws.write(r_idx + 1, c_idx + 1, s_val, fmt_total_val)
